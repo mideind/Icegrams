@@ -3,6 +3,18 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Data files
+*.sorted
+*.bin
+*.tsv
+
+# Editor files
+*.sublime-workspace
+*.sublime-project
+
+# Profiling
+*.profile
+
 # C extensions
 *.so
 
