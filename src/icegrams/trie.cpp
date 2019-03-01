@@ -374,11 +374,14 @@ UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex) {
 }
 
 #pragma pack(push, 1)
+
+// The header of a packed MonotonicList instance
 struct MonoListHeader {
-   UINT32 n;
-   UINT32 nLb;
-   UINT32 anHbufIndex[0];
+   UINT32 n;               // Number of elements in the list
+   UINT32 nLb;             // The number of low bits
+   UINT32 anHbufIndex[0];  // Array of indices into the high-bit buffer
 };
+
 #pragma pack(pop)
 
 UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
@@ -455,7 +458,6 @@ UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
       nBy += 1;
    }
    // Now we need to find our 1-bit
-   // !!! Note: the following can be done by lookup table
    nBy = (UINT)(pb[nBy] & bMask);
    while (1) {
       if (nBy & 1) {

@@ -13,6 +13,16 @@ Overview
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
+The trigrams are heavily compressed using radix tries and
+`quasi-succinct indexes <https://arxiv.org/abs/1206.4300>`_ employing
+Elias-Fano encoding. This enables the trigrams to be stored in memory
+for very fast queries (typically ~30 microseconds per lookup). The library
+is implemented in Python and C/C++, glued together via
+`CFFI <https://cffi.readthedocs.io/en/latest/>`_.
+
+The trigram storage approach is based on a
+`2017 paper by Pibiri and Venturini <http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf>`_.
+
 You can use Icegrams to obtain probabilities (relative frequencies) of
 over a million different unigrams (single words or tokens), or of
 bigrams (pairs of two words or tokens), or of trigrams. You can also
