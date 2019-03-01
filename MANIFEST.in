@@ -1,0 +1,4 @@
+graft src
+prune src/icegrams/__pycache__
+exclude src/icegrams/*.o
+exclude src/icegrams/*.so
