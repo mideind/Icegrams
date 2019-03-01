@@ -12,43 +12,17 @@ __pycache__/
 *.so
 *.exe
 
-# Editor files
-*.sublime-project
-*.sublime-workspace
-
 # Data files
 *.sorted
 *.tsv
 *.bin
-
-# Compressed DAWG trees
-*.dawg
-
-# Pickled DAWG trees
-*.pickle
-
-# Training data files
-*.gz
-*.zip
-
-# Experimental Python stuff
-test.py
 
 # Doc stuff
 doc/Makefile
 doc/make.bat
 doc/_build/
 
-# Various resource files
-src/reynir/resources/*.csv
-!src/reynir/resources/ord.auka.csv
-!src/reynir/resources/systematic_additions.csv
-
-# Scratch work files
-src/reynir/_eparser.cpp
-*.bin
-!ordalisti-*.dawg.bin
-
+# Working files
 *.sublime-project
 *.sublime-workspace
 *.code-workspace
@@ -82,9 +56,7 @@ console/
 
 # Virtual environments
 venv/
-p35/
-p358/
-p359/
+p35*/
 
 # Installer logs
 pip-log.txt
