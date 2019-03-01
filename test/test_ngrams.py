@@ -91,4 +91,3 @@ def test_compressed_list():
     ml = MonotonicList()
     ml.compress([17])
     assert ml[0] == 17
-
