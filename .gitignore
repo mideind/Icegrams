@@ -12,6 +12,15 @@ __pycache__/
 *.so
 *.exe
 
+# Editor files
+*.sublime-project
+*.sublime-workspace
+
+# Data files
+*.sorted
+*.tsv
+*.bin
+
 # Compressed DAWG trees
 *.dawg
 
