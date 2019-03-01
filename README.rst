@@ -78,7 +78,7 @@ If you want to be able to edit the source, do like so (assuming you have **git**
     $ # [ Activate your virtualenv here if you have one ]
     $ python setup.py develop
 
-The package source code is now in ``Icegrams/src/reynir``.
+The package source code is now in ``./src/icegrams``.
 
 *****
 Tests

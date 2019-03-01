@@ -410,6 +410,8 @@ class MonotonicList:
         # identifier entry in the list (i.e. id(-1)). The prefix
         # sum was added to all entries in the list, so we add it
         # to i before doing a normal binary search.
+        if p1 >= p2:
+            return None
         if p1 > 0:
             # The prefix sum of element 0 is 0
             i += self.lookup(p1 - 1)
@@ -756,15 +758,10 @@ class NgramStorage:
         """ Return the log of the probability of the trigram
             consisting of vocabulary indices i0, i1 and i2,
             relative to the bigram of i0 and i1 """
-        # Find the bigram (i0, i1) entry, if any
-        bd = self.level0.d[i0].d.get(i1)
-        if bd is None:
-            # Bigram not found
-            return self.unigram_logprob(i2)
-        # Find the trigram entry, if any
-        tf = bd.d.get(i2)
-        assert tf is None or tf.d is None
-        return math.log(1 if tf is None else tf.cnt + 1) - math.log(bd.cnt)
+        return (
+            math.log(self.trigram_frequency(i0, i1, i2))
+            - math.log(self.bigram_frequency(i0, i1))
+        )
 
     _FREQ_DISPATCH = {1: unigram_frequency, 2:bigram_frequency, 3:trigram_frequency}
 
@@ -1301,8 +1298,8 @@ class NgramStorage:
         pos = f.tell()
         # Compressing this list would save a few kilobytes but make
         # retrieval slower, so it's probably not worth it
-        for level in range(self.MAX_N):
-            freqs = self.freqs[level + 1]
+        for level in range(self.MAX_N + 1):
+            freqs = self.freqs[level]
             assert len(freqs) < 1 << 32
             f.write(UINT32.pack(len(freqs)))
             for k in sorted(freqs.keys()):
@@ -1380,9 +1377,9 @@ class NgramStorage:
         self._trigram_ml = MonotonicList(self._trigrams)
 
         # Load the freqs rank list into memory
-        self.freqs = [[]]
+        self.freqs = []
         loc = 0
-        for level in range(self.MAX_N):
+        for level in range(self.MAX_N + 1):
             num = UINT32.unpack_from(self._freqs, loc)[0]
             loc += 4
             fql = []
@@ -1390,6 +1387,10 @@ class NgramStorage:
                 fql.append(UINT32.unpack_from(self._freqs, loc)[0])
                 loc += 4
             self.freqs.append(fql)
+
+        # Get the unigram count and store its logarithm
+        ucnt = self.freqs[0][0]
+        self.log_ucnt = math.log(ucnt + 1)
 
     def close(self):
         """ Close the memory map and destroy all references to it """
