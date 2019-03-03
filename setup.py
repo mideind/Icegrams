@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 
 """
-    Reynir: Natural language processing for Icelandic
+    Icegrams: A trigrams library for Icelandic
 
     Setup.py
 

@@ -49,4 +49,5 @@ extern "C" UINT bitselect(const BYTE* pb, UINT n);
 extern "C" UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
 extern "C" UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
 extern "C" UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
+extern "C" UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
 

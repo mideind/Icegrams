@@ -72,17 +72,18 @@
 import time
 from collections import defaultdict, deque
 from bisect import bisect_left
+from heapq import nlargest
 import struct
 import math
 import io
 import mmap
 import functools
 
+# Import the CFFI wrapper for the trie.cpp C++ module (see also build_trie.py)
 if __package__:
-    # Import the CFFI wrapper for the trie.cpp C++ module (see also build_trie.py)
-    # This is not needed for command-line invocation of ngrams.py,
-    # i.e. when generating a new compressed trigram file.
     from ._trie import lib as trie_cffi, ffi
+else:
+    from _trie import lib as trie_cffi, ffi
 
 # TSV_FILENAME = "trigrams.tsv"
 TSV_FILENAME = "trigrams-subset.tsv"
@@ -135,12 +136,16 @@ class Ngrams:
             1 <= n <= 3. The frequency is adjusted so that n-grams
             that do not occur in the database have frequency 1, and all
             others have their actual frequency incremented by one. """
+        if not args:
+            raise ValueError("Must provide at least one string argument")
         return self.ngrams.freq(*args)
 
     def logprob(self, *args):
         """ Return the log of the approximate probability
             of word w(n) given its predecessors w(1)..w(n-1),
             for 1 <= n <= 3 (i.e. unigram, bigram or trigram) """
+        if not args:
+            raise ValueError("Must provide at least one string argument")
         return self.ngrams.logprob(*args)
 
     def prob(self, *args):
@@ -148,7 +153,20 @@ class Ngrams:
             note that it is never zero) of word w(n) given its
             predecessors w(1)..w(n-1), for 1 <= n <= 3 (i.e. unigram,
             bigram or trigram) """
+        if not args:
+            raise ValueError("Must provide at least one string argument")
         return math.exp(self.logprob(*args))
+
+    def succ(self, n, *args):
+        """ Returns a sorted list of length <= n with the most likely
+            successors to the words given, in descending order of
+            log probability. The list consists of tuples of
+            (word, log probability). """
+        if not isinstance(n, int):
+            raise TypeError("Expected integer for parameter n")
+        if not args:
+            raise ValueError("Must provide at least one string argument")
+        return self.ngrams.succ(n, *args)
 
     def close(self):
         """ Close the underlying storage and its memory map """
@@ -252,7 +270,49 @@ class BitArray:
         return len(self.b) + (1 if self.bits else 0)
 
 
-class MonotonicList:
+class BaseList:
+
+    def __getitem__(self, ix):
+        """ Returns the integer at index ix within the sequence """
+        return self.lookup(ix)
+
+    def lookup_pair(self, ix):
+        """ Return the pair of values at [ix] and [ix+1] """
+        # !!! TODO: Optimize this
+        return (self.lookup(ix), self.lookup(ix + 1))
+
+    def search_prefix(self, p1, p2, i):
+        """ Binary search for the identifier i in the range [p1, p2> """
+        # In this case an identifier list id0, id1, ..., idN was stored
+        # using a prefix sum, which is the value of the preceding
+        # identifier entry in the list (i.e. id(-1)). The prefix
+        # sum was added to all entries in the list, so we add it
+        # to i before doing a normal binary search.
+        if p1 >= p2:
+            return None
+        if p1 > 0:
+            # The prefix sum of element 0 is 0
+            i += self.lookup(p1 - 1)
+        return self.search(p1, p2, i)
+
+    def search(self, p1, p2, i):
+        """ Binary search for the identifier i in the range [p1, p2> """
+        while True:
+            if p1 >= p2:
+                return None
+            mid = (p1 + p2) // 2
+            this_id = self.lookup(mid)
+            if this_id == i:
+                return mid
+            if this_id > i:
+                # Too high: lower our roof
+                p2 = mid
+            else:
+                # Too low (this_id < i): raise our floor
+                p1 = mid + 1
+
+
+class MonotonicList(BaseList):
 
     """ A MonotonicList stores a presorted, monotonically increasing
         list of integers in a compact byte buffer using Elias-Fano
@@ -323,7 +383,6 @@ class MonotonicList:
             while low_cnt >= 8:
                 # We have accumulated 8 or more significant bits:
                 # emit them, from the left (least significant) side of the bit buffer
-                #print("emitting {0:02X}".format(low_buf & 0xFF))
                 buf.append(low_buf & 0xFF)
                 low_buf >>= 8
                 low_cnt -= 8
@@ -337,11 +396,11 @@ class MonotonicList:
             # (n being 0-based) is thus the value of the high part for the
             # item at index n.
             if high_bits > 0:
-                if ix % self.QUANTUM_SIZE == 0 and ix > 0:
+                if ix % self.QUANTUM_SIZE == 0 and ix:
                     # At index intervals of QUANTUM_SIZE,
                     # store where we were in the hbuf before
                     # writing this list item
-                    assert hbit < 2**32
+                    assert hbit < 1 << 32
                     hbuf_index += UINT32.pack(hbit + 1)
                 hbit = (item >> low_bits) + ix
                 # Set the bit with index (i + high)
@@ -359,27 +418,38 @@ class MonotonicList:
         # Construct the final compressed buffer
         # Add an 8-byte header in front containing n and the number of low bits,
         # which is all we need for decompression
-        assert len(hbuf_index) == ((self.n - 1) // self.QUANTUM_SIZE) * 4
-        # print("hbuf_index takes {0} bytes".format(len(hbuf_index)))
-        self.b = (
-            UINT32.pack(self.n)
-            + UINT32.pack(self.low_bits)
-            + bytes(hbuf_index)
-            + bytes(buf + hbuf)
-        )
+        if high_bits > 0:
+            try:
+                assert len(hbuf_index) == ((self.n - 1) // self.QUANTUM_SIZE) * 4
+            except AssertionError:
+                print("len(hbuf_index) is {0}, self.n is {1}, QUANTUM_SIZE is {2}"
+                    .format(len(hbuf_index), self.n, self.QUANTUM_SIZE))
+                raise
+        parts = [
+            UINT32.pack(self.n),
+            UINT32.pack(self.low_bits),
+            bytes(hbuf_index),
+            bytes(buf + hbuf)
+        ]
+        # Align the byte block to a DWORD (32-bit) boundary
+        frag = sum(len(p) for p in parts) & 3
+        if frag:
+            parts.append(b"\x00" * (4 - frag))
+        self.b = b"".join(parts)
+        self.ffi_b = ffi.from_buffer(self.b)
 
     def to_bytes(self):
         """ Return a bytes object containing the compressed list """
         return self.b
 
     def __str__(self):
-        s = "MonotonicList: u is {0}, n is {1}\n".format(self.u, self.n)
+        s = "MonotonicList: u is {0:,}, n is {1:,}\n".format(self.u, self.n)
         s += (
-            "low_bits is {0}, high_bits is {1}, total range {2}\n"
+            "low_bits is {0}, high_bits is {1}, total range {2:,}\n"
             .format(self.low_bits, self.high_bits, 2**(self.low_bits + self.high_bits) - 1)
         )
         s += (
-            "size in bytes is {0} instead of straightforward {1}"
+            "size in bytes is {0:,} instead of straightforward {1:,}"
             .format(len(self.b), (self.n * int(math.log(self.u, 2) + 1.0) + 7) // 8)
         )
         return s
@@ -388,50 +458,122 @@ class MonotonicList:
         """ Return the number of elements in the list """
         return self.n
 
-    def __getitem__(self, ix):
-        """ Returns the integer at index ix within the sequence """
-        return self.lookup(ix)
-
-    def lookup_pair(self, ix):
-        """ Return the pair of values at [ix] and [ix+1] """
-        # !!! TODO: Optimize this
-        return (self.lookup(ix), self.lookup(ix + 1))
-
     def lookup(self, ix):
         """ Returns the integer at index ix within the sequence """
         if self.ffi_b is None:
             raise ValueError("Lookup not allowed from uncompressed list")
         return trie_cffi.lookupMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix)
 
-    def search_prefix(self, p1, p2, i):
-        """ Binary search for the identifier i in the range [p1, p2> """
-        # In this case an identifier list id0, id1, ..., idN was stored
-        # using a prefix sum, which is the value of the preceding
-        # identifier entry in the list (i.e. id(-1)). The prefix
-        # sum was added to all entries in the list, so we add it
-        # to i before doing a normal binary search.
-        if p1 >= p2:
-            return None
-        if p1 > 0:
-            # The prefix sum of element 0 is 0
-            i += self.lookup(p1 - 1)
-        return self.search(p1, p2, i)
 
-    def search(self, p1, p2, i):
-        """ Binary search for the identifier i in the range [p1, p2> """
-        while True:
-            if p1 >= p2:
-                return None
-            mid = (p1 + p2) // 2
-            this_id = self.lookup(mid)
-            if this_id == i:
-                return mid
-            if this_id > i:
-                # Too high: lower our roof
-                p2 = mid
-            else:
-                # Too low (this_id < i): raise our floor
-                p1 = mid + 1
+class PartitionedMonotonicList(BaseList):
+
+    """ A PartitionedMonotonicList consists of a list
+        of Elias-Fano lists, with the trick being that
+        each sublist is encoded with its own item
+        sequence, after subtracting the value of the
+        first item of the list (which is stored in
+        the first level list). """
+
+    QUANTUM_SIZE = 1 << 11
+
+    def __init__(self, b=None):
+        self.b = b
+        self.ffi_b = None if b is None else ffi.from_buffer(b)
+
+    def compress(self, int_list):
+        """ Compress int_list into a two-level partitioned
+            Elias-Fano list, where the lower level consists
+            of sublists of length <= QUANTUM_SIZE, and the
+            upper level consists of a list of the values of
+            the first items of the sublists. """
+
+        # The upper level list
+        chunks = []
+        # The byte offsets of the lower-level lists
+        chunk_index = [0]
+        # The current prefix to be subtracted from each
+        # sublist item, i.e. the value of the first
+        # item in the current sublist
+        prefix = 0
+        # The current sublist
+        sq = []
+        # The accumulated compressed sublists
+        buf = []
+        # The number of sublist bytes accumulated so far
+        buf_size = 0
+        # The compressor object
+        ml = MonotonicList()
+        Q = self.QUANTUM_SIZE
+
+        for ix, item in enumerate(int_list):
+            if ix % Q == 0 and ix:
+                # Finishing a sublist and starting a new one:
+                # note the value of the first item in the
+                # new sublist
+                chunks.append(item)
+                # Note the byte offset of the new sublist
+                chunk_index.append(buf_size)
+                # Switch to a new prefix value to subtract
+                prefix = item
+                # Compress the previous sublist and append
+                # its byte buffer to our accumulator list
+                ml.compress(sq)
+                b = ml.to_bytes()
+                buf.append(b)
+                # Add to the byte offset
+                buf_size += len(b)
+                # Start a new sublist
+                sq = []
+            # Add the item to the current sublist, after
+            # subtracting the prefix value
+            assert item >= prefix
+            sq.append(item - prefix)
+
+        if sq:
+            # Clean up remaining items in the current sublist
+            chunk_index.append(buf_size)
+            ml.compress(sq)
+            b = ml.to_bytes()
+            buf.append(b)
+            buf_size += len(b)
+
+        # Create a merged buffer of all accumulated sublists
+        buf = b"".join(buf)
+        # Compress the upper level list
+        ml.compress(chunks)
+        chunk_bytes = ml.to_bytes()
+        # Calculate the offset of the upper level list within
+        # the resulting byte buffer
+        offset = 4 + 4 * len(chunk_index) + len(chunk_bytes)
+        # Assemble the final byte buffer
+        parts = [
+            UINT32.pack(len(chunk_index)),
+            b"".join(UINT32.pack(pos + offset) for pos in chunk_index),
+            chunk_bytes,
+            buf
+        ]
+        # Align the byte block to a DWORD (32-bit) boundary
+        frag = sum(len(p) for p in parts) & 3
+        if frag:
+            parts.append(b"\x00" * (4 - frag))
+        self.b = b"".join(parts)
+        self.ffi_b = ffi.from_buffer(self.b)
+        print(
+            "Completed compression of PartitionedMonotonicList, sublists are {0:,}"
+            .format(len(chunks))
+        )
+
+    def to_bytes(self):
+        """ Return the byte buffer containing the compressed list """
+        return self.b
+
+    def lookup(self, ix):
+        """ Lookup a value from the compressed list, by index """
+        if self.ffi_b is None:
+            raise ValueError("Lookup not allowed from uncompressed list")
+        return trie_cffi.lookupPartition(
+            self.ffi_b, self.QUANTUM_SIZE, MonotonicList.QUANTUM_SIZE, ix
+        )
 
 
 class _Node:
@@ -627,6 +769,9 @@ class _Level:
     __slots__ = ("cnt", "d")
 
     def __init__(self, depth):
+        self.reset(depth)
+
+    def reset(self, depth):
         self.cnt = 0
         if depth >= NgramStorage.MAX_N:
             self.d = None
@@ -714,6 +859,9 @@ class NgramStorage:
         # Look up the pointer range for i0 in the unigram pointers
         if i0 is None or i1 is None:
             return 1
+        # Check degenerate case
+        if not (i0 or i1):
+            return 1
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
         i = self._bigram_ml.search_prefix(p1, p2, i1)
@@ -734,6 +882,16 @@ class NgramStorage:
         # Look up the pointer range for i0 in the unigram pointers
         if i0 is None or i1 is None or i2 is None:
             return 1
+        # Check degenerate cases
+        if not (i0 or i1 or i2):
+            # This is (0, 0, 0)
+            return 1
+        if not (i0 or i1):
+            # This is (0, 0, w2): lookup (0, w2) instead
+            return self.bigram_frequency(i1, i2)
+        if not (i1 or i2):
+            # This is (w2, 0, 0): lookup (w2, 0) instead
+            return self.bigram_frequency(i0, i1)
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
         i = self._bigram_ml.search_prefix(p1, p2, i1)
@@ -788,6 +946,63 @@ class NgramStorage:
             args = args[-self.MAX_N:]
         return self._PROB_DISPATCH[len(args)](self, *self.indices(*args))
 
+    def unigram_succ(self, n, i0):
+        """ Return successors to the unigram whose id is in i0 """
+        if i0 is None:
+            return []
+        p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
+        if p1 >= p2:
+            return []
+        lp0 = math.log(self.lookup_frequency(1, self._unigram_freqs, i0) + 1)
+        result = []
+        prefix_sum = 0 if p1 is 0 else self._bigram_ml.lookup(p1 - 1)
+        for i in range(p1, p2):
+            j = self._bigram_ml.lookup(i) - prefix_sum
+            lpi = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
+            result.append((j, lpi - lp0))
+        return sorted(result, key=lambda e:e[1], reverse=True)[0:n]
+
+    def bigram_succ(self, n, i0, i1):
+        """ Return successors to the bigram (i0, i1) """
+        if i0 is None or i1 is None:
+            return []
+        p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
+        if p1 >= p2:
+            return []
+        i = self._bigram_ml.search_prefix(p1, p2, i1)
+        if i is None:
+            # Not found
+            return []
+        p1, p2 = self._bigram_ptrs_ml.lookup_pair(i)
+        if p1 >= p2:
+            return []
+        # Cache the bigram range of i1
+        q1, q2 = self._unigram_ptrs_ml.lookup_pair(i1)
+        prefix_sum_bi = self._bigram_ml.lookup(q1 - 1) if q1 > 0 else 0
+        # Cache the bigram frequency of (i0, i1)
+        lp0 = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
+        result = []
+        prefix_sum_tri = self._trigram_ml.lookup(p1 - 1) if p1 > 0 else 0
+        for i in range(p1, p2):
+            # trigram[i] is a remapped id, i.e. it's an offset
+            # into the bigram children of i1
+            remapped_id = self._trigram_ml.lookup(i) - prefix_sum_tri
+            j = self._bigram_ml.lookup(q1 + remapped_id) - prefix_sum_bi
+            lpi = math.log(self.lookup_frequency(3, self._trigram_freqs, i) + 1)
+            result.append((j, lpi - lp0))
+        return sorted(result, key=lambda e:e[1], reverse=True)[0:n]
+
+    _SUCC_DISPATCH = {1: unigram_succ, 2:bigram_succ}
+
+    def succ(self, n, *args):
+        """ Return a list of likely successors to the words
+            in *args, of length <= n. The list consists of
+            tuples of (word, log probability), in descending
+            order of log probability. """
+        if len(args) >= self.MAX_N:
+            args = args[-(self.MAX_N - 1):]
+        return self._SUCC_DISPATCH[len(args)](self, n, *self.indices(*args))
+
     def read_tsv(self, fname, *, add_all_bigrams=False):
         """ Populate the trigram database from a tab-separated (.tsv) file """
         print("Reading {0}, first pass...".format(fname), flush=True)
@@ -822,15 +1037,17 @@ class NgramStorage:
                     vocab[to_bytes(w1)] += 1
                     vocab[to_bytes(w2)] += 1
         # Trie that maps unigrams to integer identifiers
-        trie = Trie(reserve_zero_for_empty=(b"" in vocab))
+        using_empty = b"" in vocab
+        trie = Trie(reserve_zero_for_empty=using_empty)
         # Dict to map words to integer ids
-        ids = { b"": 0 } if b"" in vocab else {}
+        ids = { b"": 0 } if using_empty else {}
         # Build the trie in decreasing order of occurrences, ensuring that
         # the most common unigrams get the lowest indices
-        if b"" in vocab:
+        if using_empty:
             # Hack to make sure that the blank entry goes to the front of the list
             vocab[b""] = 10**50
         vocab_list = sorted(vocab.items(), key=lambda item: item[1], reverse=True)
+        assert not using_empty or vocab_list[0][0] == b""
         vocab = None
         for unigram_id, (w, c) in enumerate(vocab_list):
             if unigram_id == 0 and w == b"":
@@ -867,15 +1084,13 @@ class NgramStorage:
                     assert len(a) == 4
                     w0, w1, w2 = a[0:3]
                     charset = set(w0 + w1 + w2)
-                    if not charset.issubset(ALPHABET_SET):
+                    if not charset or not charset.issubset(ALPHABET_SET):
                         # Ignore trigrams that contain out-of-alphabet code points,
                         # such as Russian or Arabic characters
                         # print("Skipping line {0}".format(line))
                         continue
                     i0, i1, i2 = ids[to_bytes(w0)], ids[to_bytes(w1)], ids[to_bytes(w2)]
                     c = int(a[3])
-                    # Sum up all the unigram counts
-                    ucnt += c
 
                     # Note that in our trigram database, the sentence
                     # w0 w1 w2 w3
@@ -905,11 +1120,38 @@ class NgramStorage:
                         # If the data does not contain (w1, w2, w3)
                         # for every (w0, w1, w2), add (w1, w2) explicitly
                         # Unigram frequency
+                        d = uf[i2]
+                        d.cnt += c
                         d = uf[i1]
                         d.cnt += c
                         # Bigram frequency
                         d = d.d[i2]
                         d.cnt += c
+                        # In this case, we count each unigram separately
+                        ucnt += 3 * c
+                    else:
+                        # Sum up all the unigram counts
+                        ucnt += c
+
+        if using_empty:
+            # Save space by storing the counts of (0, 0, w2) in
+            # (0, w2) and deleting (0, 0, w2)
+            d0 = uf[0].d
+            d00 = d0[0].d
+            for w2 in d00.keys():
+                d0[w2].cnt = d00[w2].cnt
+            cut = len(d00)
+            d0[0].reset(2)
+            # Save space by storing the counts of (w0, 0, 0) in
+            # (w0, 0) and deleting (w0, 0, 0)
+            for w0 in uf.keys():
+                if 0 in uf[w0].d:
+                    w0d = uf[w0].d[0]
+                    if 0 in w0d.d:
+                        w0d.cnt = w0d.d[0].cnt
+                        del w0d.d[0]
+                        cut += 1
+            print("Cut out {0:,} trigrams with two blanks".format(cut))
 
         self.trie = trie
         self.vocab_size = len(trie)
@@ -943,7 +1185,8 @@ class NgramStorage:
 
         t1 = time.time()
         print(
-            "Done in {3:.1f} sec, trigram count is {0}, voc size is {1}, unigram count {2}"
+            "Done in {3:.1f} sec, trigram count is {0:,}, "
+            "voc size is {1:,}, unigram count {2:,}"
             .format(cnt, len(trie), ucnt, t1 - t0)
         )
 
@@ -1032,11 +1275,11 @@ class NgramStorage:
             write_node(*todo.popleft())
 
         print(
-            "Written {0} nodes, thereof {1} single-char nodes and {2} multi-char."
+            "Written {0:,} nodes, thereof {1:,} single-char nodes and {2:,} multi-char."
             .format(node_cnt, single_char_node_count, multi_char_node_count)
         )
-        print("Childless nodes are {0}.".format(no_child_node_count))
-        print("Maximum fixup distance is {0} bytes.".format(max_distance))
+        print("Childless nodes are {0:,}.".format(no_child_node_count))
+        print("Maximum fixup distance is {0:,} bytes.".format(max_distance))
 
     def write_unigram_pointers(self, f):
         """ Unigram sequence: we write pointers to the next level
@@ -1048,23 +1291,17 @@ class NgramStorage:
         ptrs = [0]
         # Zero the running bigram pointer index
         ix = 0
-        has_zero_delta = False
         # Loop over all unigram ids
         for i in range(len(self.trie)):
             # Append this id's index to the pointer list
             p = level.d[i]
             # Add the number of bigram entries to our running index
             delta = 0 if p.d is None else len(p.d)
-            if delta == 0:
-                has_zero_delta = True
             ix += delta
             ptrs.append(ix)
         # Now, compress the pointer list using Elias-Fano encoding
         ml = MonotonicList()
-        print(
-            "Uni-pointers are {0}, has_zero_delta is {1}"
-            .format(len(ptrs), has_zero_delta)
-        )
+        print("Uni-pointers are {0:,}".format(len(ptrs)))
         ml.compress(ptrs)
         # ...and write it to our compressed buffer
         f.write(ml.to_bytes())
@@ -1072,12 +1309,14 @@ class NgramStorage:
 
     def write_unigram_frequencies(self, f):
         """ Write the unigram frequency data """
-        print("Uni-frequencies are {0}\n".format(len(self.trie)))
+        print("Uni-frequencies are {0:,}".format(len(self.trie)))
         freqs = self.freqs[1]
         d = self.level0.d
+        pos = f.tell()
         self.write_frequencies(
             f, [freqs[d[i].cnt] for i in range(len(self.trie))]
         )
+        print("Uni-frequencies occupy {0:,} bytes.".format(f.tell() - pos))
 
     def write_bigram_and_trigram_levels(self, f):
         """ Write the bigram and trigram levels to the binary file """
@@ -1156,30 +1395,45 @@ class NgramStorage:
                         tri_prefix_sum += remapped_id
                 bi_prefix_sum += bids[-1]
         ptrs.append(ix)
-        # Write the bigram level data
+
+        # Prepare the compressors
         ml = MonotonicList()
-        print("Bi-ids are {0}".format(len(bi_ids)))
-        ml.compress(bi_ids)
-        f.write(ml.to_bytes())
-        print("Bi-ids: {0}\n".format(ml))
-        print("Bi-pointers are {0}".format(len(ptrs)))
+        pl = PartitionedMonotonicList()
+
+        # Write the bigram level data
+        print("\nBi-ids are {0:,}".format(len(bi_ids)))
+        pl.compress(bi_ids)
+        # ml.compress(bi_ids)
+        f.write(pl.to_bytes())
+        print("Bi_ids compressed with partitions: {0:,} bytes".format(len(pl.to_bytes())))
+        # print("Bi-ids: {0}\n".format(ml))
+
+        print("Bi-pointers are {0:,}".format(len(ptrs)))
         ml.compress(ptrs)
         bi_ptr_loc = f.tell()
         f.write(ml.to_bytes())
         print("Bi-pointers: {0}\n".format(ml))
+
         # Write the trigram ids
         # (There are no pointers at the trigram level)
-        print("Tri-ids are {0}".format(len(tri_ids)))
-        ml.compress(tri_ids)
+        print("Tri-ids are {0:,}".format(len(tri_ids)))
+        pl.compress(tri_ids)
+        # ml.compress(tri_ids)
         tri_id_loc = f.tell()
-        f.write(ml.to_bytes())
-        print("Tri-ids: {0}\n".format(ml))
-        print("\nBi-frequencies are {0}\n".format(len(bi_fqs)))
+        f.write(pl.to_bytes())
+        print("Tri_ids compressed with partitions: {0:,} bytes".format(len(pl.to_bytes())))
+        # print("Tri-ids: {0}\n".format(ml))
+
+        pl = ml = None
+
+        print("\nBi-frequencies are {0:,}".format(len(bi_fqs)))
         bi_fq_loc = f.tell()
         self.write_frequencies(f, bi_fqs)
-        print("Tri-frequencies are {0}\n".format(len(tri_fqs)))
+        print("Bi-frequencies occupy {0:,} bytes.".format(f.tell() - bi_fq_loc))
+        print("\nTri-frequencies are {0:,}".format(len(tri_fqs)))
         tri_fq_loc = f.tell()
         self.write_frequencies(f, tri_fqs)
+        print("Tri-frequencies occupy {0:,} bytes.".format(f.tell() - tri_fq_loc))
         return bi_fq_loc, tri_fq_loc, bi_ptr_loc, tri_id_loc
 
     def write_frequencies(self, f, freq_ranks):
@@ -1305,14 +1559,14 @@ class NgramStorage:
             for k in sorted(freqs.keys()):
                 assert k < 1 << 32
                 f.write(UINT32.pack(k))
-        print("Frequencies take a total of {0} bytes.".format(f.tell() - pos))
+        print("Frequencies take a total of {0:,} bytes.".format(f.tell() - pos))
 
         # Write unigram vocabulary
         write_padded(b"[vocabulary]", 16)
         fixup(h.trie_offset)
         pos = f.tell()
         self.write_trie(f, self.trie)
-        print("Vocabulary trie takes a total of {0} bytes.".format(f.tell() - pos))
+        print("Vocabulary trie takes a total of {0:,} bytes.".format(f.tell() - pos))
 
         # Write the ngram data
         write_padded(b"[ngrams]", 16)
@@ -1321,8 +1575,12 @@ class NgramStorage:
         # Write the unigram level
         fixup(h.unigram_ptrs_offset)
         self.write_unigram_pointers(f)
+        print("Unigram pointers take a total of {0:,} bytes.".format(f.tell() - pos))
+        pos = f.tell()
         fixup(h.unigram_freqs_offset)
         self.write_unigram_frequencies(f)
+        print("Unigram frequencies take a total of {0:,} bytes.".format(f.tell() - pos))
+        pos = f.tell()
 
         # Write the bigram and trigram levels
         fixup(h.bigrams_offset)
@@ -1331,8 +1589,9 @@ class NgramStorage:
         fixup(h.trigram_freqs_offset, tri_fq_loc)
         fixup(h.bigram_ptrs_offset, bi_ptr_loc)
         fixup(h.trigrams_offset, tri_id_loc)
+        f.seek(0, io.SEEK_END)
 
-        print("Ngrams take a total of {0} bytes.".format(f.tell() - pos))
+        print("Bigram and trigram levels take a total of {0:,} bytes.".format(f.tell() - pos))
 
         # Write the entire byte buffer stream to the compressed file
         with open(fname, "wb") as stream:
@@ -1367,14 +1626,14 @@ class NgramStorage:
         # Instantiate the MonotonicList for unigram pointers
         self._unigram_ptrs_ml = MonotonicList(self._unigram_ptrs)
 
-        # Instantiate the MonotonicList for bigrams
-        self._bigram_ml = MonotonicList(self._bigrams)
+        # Instantiate the partitioned list for bigrams
+        self._bigram_ml = PartitionedMonotonicList(self._bigrams)
 
         # Instantiate the MonotonicList for bigram pointers
         self._bigram_ptrs_ml = MonotonicList(self._bigram_ptrs)
 
-        # Instantiate the MonotonicList for trigrams
-        self._trigram_ml = MonotonicList(self._trigrams)
+        # Instantiate the partitioned list for trigrams
+        self._trigram_ml = PartitionedMonotonicList(self._trigrams)
 
         # Load the freqs rank list into memory
         self.freqs = []

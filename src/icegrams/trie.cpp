@@ -1,6 +1,6 @@
 /*
 
-   Reynir: Natural language processing for Icelandic
+   Icegrams
 
    C++ trie lookup module
 
@@ -476,5 +476,26 @@ UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    return (nHighPart << nLb) | nLowPart;
 }
 
+#pragma pack(push, 1)
+
+// The header of a packed PartitionedMonotonicList instance
+struct PartitionListHeader {
+   UINT32 nChunks;         // Number of chunks
+   UINT32 anChunkIndex[0]; // Array of chunk offsets
+};
+
+#pragma pack(pop)
+
+UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex)
+{
+   /* Look up a value from a partitioned monotonic (Elias-Fano) list */
+   UINT nQ = nIndex / nOuterQuantum;
+   UINT nR = nIndex % nOuterQuantum;
+   const PartitionListHeader* pHeader = (const PartitionListHeader*)pb;
+   const BYTE* pbOuter = pb + sizeof(UINT32) * (1 + pHeader->nChunks);
+   const BYTE* pbInner = pb + pHeader->anChunkIndex[nQ];
+   UINT nPrefix = nQ ? lookupMonotonic(pbOuter, nInnerQuantum, nQ - 1) : 0;
+   return nPrefix + lookupMonotonic(pbInner, nInnerQuantum, nR);
+}
 
 

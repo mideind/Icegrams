@@ -51,6 +51,7 @@ declarations = """
     UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
     UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
     UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
+    UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
 
 """
 

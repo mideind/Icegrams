@@ -2,7 +2,7 @@
 from random import randint
 
 from icegrams.ngrams import (
-    BitArray, MonotonicList
+    BitArray, MonotonicList, PartitionedMonotonicList
 )
 
 def test_compressed_list():
@@ -51,3 +51,17 @@ def test_compressed_list():
     ml = MonotonicList()
     ml.compress([17])
     assert ml[0] == 17
+
+def test_partitioned_list():
+    pl = PartitionedMonotonicList()
+    pl.compress([i for i in range(8000)])
+    assert pl[177] == 177
+    assert pl[2177] == 2177
+    assert pl[4177] == 4177
+    assert pl[7177] == 7177
+    pl.compress([i*3 for i in range(8000)])
+    assert pl[199] == 199*3
+    assert pl[2199] == 2199*3
+    assert pl[4199] == 4199*3
+    assert pl[7199] == 7199*3
+
