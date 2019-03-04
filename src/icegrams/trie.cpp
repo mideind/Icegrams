@@ -425,6 +425,9 @@ UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    }
    // Extract the low part from the accumulated bits
    UINT nLowPart = (nBits >> nLowBitIndex) & nLowMask;
+   if (!nHb)
+      // No high bits: we're done
+      return nLowPart;
    UINT nHighPart = 0;
    // Now for the high part
    // Find out where it starts

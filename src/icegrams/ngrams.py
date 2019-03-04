@@ -85,11 +85,11 @@ if __package__:
 else:
     from _trie import lib as trie_cffi, ffi
 
-# TSV_FILENAME = "trigrams.tsv"
-TSV_FILENAME = "trigrams-subset.tsv"
+TSV_FILENAME = "trigrams.tsv"
+# TSV_FILENAME = "trigrams-subset.tsv"
 # TSV_FILENAME = "3-grams.sorted"
-# BINARY_FILENAME = "trigrams.bin"
-BINARY_FILENAME = "trigrams-subset.bin"
+BINARY_FILENAME = "trigrams.bin"
+# BINARY_FILENAME = "trigrams-subset.bin"
 # BINARY_FILENAME = "3-grams.sorted.bin"
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
@@ -510,7 +510,7 @@ class PartitionedMonotonicList(BaseList):
         Q = self.QUANTUM_SIZE
 
         for ix, item in enumerate(int_list):
-            if ix % Q == 0 and ix:
+            if (ix % Q == 0) and ix:
                 # Finishing a sublist and starting a new one:
                 # note the value of the first item in the
                 # new sublist
@@ -1385,7 +1385,6 @@ class NgramStorage:
                         # little more work during lookup.
                         # Retrieve a cached sorted list of children of w1
                         w1_children = sorted_child_ids(w1)
-                        remapped_id = 0
                         for w2 in trids:
                             # Find the index of w2 within the list of children
                             # of w1, by bisection
@@ -1395,8 +1394,9 @@ class NgramStorage:
                             # remapped_id = w2
                             tri_ids.append(remapped_id + tri_prefix_sum)
                             tri_fqs.append(tri_freqs[pp.d[w2].cnt])
-                        tri_prefix_sum += remapped_id
-                bi_prefix_sum += bids[-1]
+                        # Set the next prefix sum
+                        tri_prefix_sum = tri_ids[-1]
+                bi_prefix_sum = bi_ids[-1]
         ptrs.append(ix)
 
         # Prepare the compressors
