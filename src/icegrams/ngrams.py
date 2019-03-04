@@ -272,6 +272,10 @@ class BitArray:
 
 class BaseList:
 
+    def lookup(self, ix):
+        """ Should always be overridden in derived classes """
+        raise NotImplementedError
+
     def __getitem__(self, ix):
         """ Returns the integer at index ix within the sequence """
         return self.lookup(ix)
@@ -427,7 +431,7 @@ class MonotonicList(BaseList):
                 raise
         parts = [
             UINT32.pack(self.n),
-            UINT32.pack(self.low_bits),
+            UINT16.pack(low_bits), UINT16.pack(high_bits),
             bytes(hbuf_index),
             bytes(buf + hbuf)
         ]
@@ -511,8 +515,6 @@ class PartitionedMonotonicList(BaseList):
                 # note the value of the first item in the
                 # new sublist
                 chunks.append(item)
-                # Note the byte offset of the new sublist
-                chunk_index.append(buf_size)
                 # Switch to a new prefix value to subtract
                 prefix = item
                 # Compress the previous sublist and append
@@ -522,6 +524,8 @@ class PartitionedMonotonicList(BaseList):
                 buf.append(b)
                 # Add to the byte offset
                 buf_size += len(b)
+                # Note the byte offset of the new sublist
+                chunk_index.append(buf_size)
                 # Start a new sublist
                 sq = []
             # Add the item to the current sublist, after
@@ -531,7 +535,6 @@ class PartitionedMonotonicList(BaseList):
 
         if sq:
             # Clean up remaining items in the current sublist
-            chunk_index.append(buf_size)
             ml.compress(sq)
             b = ml.to_bytes()
             buf.append(b)
@@ -1628,12 +1631,14 @@ class NgramStorage:
 
         # Instantiate the partitioned list for bigrams
         self._bigram_ml = PartitionedMonotonicList(self._bigrams)
+        # self._bigram_ml = MonotonicList(self._bigrams)
 
         # Instantiate the MonotonicList for bigram pointers
         self._bigram_ptrs_ml = MonotonicList(self._bigram_ptrs)
 
         # Instantiate the partitioned list for trigrams
         self._trigram_ml = PartitionedMonotonicList(self._trigrams)
+        # self._trigram_ml = MonotonicList(self._trigrams)
 
         # Load the freqs rank list into memory
         self.freqs = []

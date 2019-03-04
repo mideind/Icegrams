@@ -378,7 +378,7 @@ UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex) {
 // The header of a packed MonotonicList instance
 struct MonoListHeader {
    UINT32 n;               // Number of elements in the list
-   UINT32 nLb;             // The number of low bits
+   UINT16 nLb, nHb;        // The number of low and high bits
    UINT32 anHbufIndex[0];  // Array of indices into the high-bit buffer
 };
 
@@ -392,12 +392,14 @@ UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    struct MonoListHeader* ph = (struct MonoListHeader*)pb;
    // Number of items in the list
    UINT n = (UINT)ph->n;
-   // Number of low bits
+   // Number of low and high bits
    UINT nLb = (UINT)ph->nLb;
+   UINT nHb = (UINT)ph->nHb;
    // High-bits buffer indices
    UINT32* pnHbufIndex = &ph->anHbufIndex[0];
+   UINT nHbufSize = nHb ? ((n - 1) / nQuantumSize) * sizeof(pnHbufIndex[0]) : 0;
    // Move the byte pointer past the header and the indices
-   pb += sizeof(MonoListHeader) + ((n - 1) / nQuantumSize) * sizeof(pnHbufIndex[0]);
+   pb += sizeof(MonoListHeader) + nHbufSize;
    // Low bit mask
    UINT nLowMask = (1 << nLb) - 1;
    // Index of first low bit to read
@@ -431,17 +433,17 @@ UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    BYTE bMask = 0xFF;
    if (nIndex >= nQuantumSize) {
       // Find out which quantum we're looking for
-      UINT q = nIndex / nQuantumSize;
+      UINT nQ = nIndex / nQuantumSize;
       // At the quantum index point, we had written
       // q*QUANTUM_SIZE 1-nBits to the high buffer and
       // had advanced to byte hby, which means that we
       // had written a total of hby * 8 nBits and therefore
       // (hby * 8) - (q * QUANTUM_SIZE) 0-nBits
-      UINT nHbit = (UINT)pnHbufIndex[q-1];
+      UINT nHbit = (UINT)pnHbufIndex[nQ-1];
       nBy += nHbit >> 3;
       bMask = 0xFF ^ ((1 << (nHbit & 0x07)) - 1);
-      nHpos -= q * nQuantumSize;
-      nHighPart = (nHbit & ~0x07) - q * nQuantumSize;
+      nHpos -= nQ * nQuantumSize;
+      nHighPart = (nHbit & ~0x07) - nQ * nQuantumSize;
    }
    while (1) {
       // How many 1 bits do we have in the current byte

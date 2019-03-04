@@ -54,14 +54,38 @@ def test_compressed_list():
 
 def test_partitioned_list():
     pl = PartitionedMonotonicList()
-    pl.compress([i for i in range(8000)])
+    pl.compress([i for i in range(18000)])
     assert pl[177] == 177
     assert pl[2177] == 2177
     assert pl[4177] == 4177
     assert pl[7177] == 7177
-    pl.compress([i*3 for i in range(8000)])
-    assert pl[199] == 199*3
-    assert pl[2199] == 2199*3
-    assert pl[4199] == 4199*3
-    assert pl[7199] == 7199*3
-
+    assert pl[12177] == 12177
+    assert pl[14177] == 14177
+    assert pl[16177] == 16177
+    pl.compress([i*17 for i in range(1380000)])
+    assert pl[199] == 199*17
+    assert pl[2199] == 2199*17
+    assert pl[4199] == 4199*17
+    assert pl[7199] == 7199*17
+    assert pl[12177] == 12177*17
+    assert pl[14177] == 14177*17
+    assert pl[16177] == 16177*17
+    assert pl[120177] == 120177*17
+    assert pl[140177] == 140177*17
+    assert pl[160177] == 160177*17
+    assert pl[343085] == 343085*17
+    assert pl[1343085] == 1343085*17
+    b = pl.to_bytes()
+    pl = PartitionedMonotonicList(b)
+    assert pl[199] == 199*17
+    assert pl[2199] == 2199*17
+    assert pl[4199] == 4199*17
+    assert pl[7199] == 7199*17
+    assert pl[12177] == 12177*17
+    assert pl[14177] == 14177*17
+    assert pl[16177] == 16177*17
+    assert pl[120177] == 120177*17
+    assert pl[140177] == 140177*17
+    assert pl[160177] == 160177*17
+    assert pl[343085] == 343085*17
+    assert pl[1343085] == 1343085*17

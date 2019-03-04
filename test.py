@@ -23,6 +23,7 @@ with open(FILENAME, encoding="utf-8") as f:
             print("Something wrong with '{0}'".format(line))
             break
 if d:
+    fq = n.freq('í', 'Taj', 'Mahal') # Should have fq=4
     LOOKUPS = 10000
     t0 = time.time()
     for i in range(LOOKUPS):
