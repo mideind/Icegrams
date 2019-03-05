@@ -62,6 +62,8 @@ declarations = """
 if WINDOWS:
     extra_compile_args = ["/Zc:offsetof-"]
 else:
+    # Adding -O3 to the compiler arguments doesn't seem to make
+    # any discernible difference in lookup speed
     extra_compile_args = ["-std=c++11"]
 
 ffibuilder.set_source(
