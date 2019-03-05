@@ -13,10 +13,10 @@ Overview
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
-The trigrams are heavily compressed using radix tries and
+The almost 34 million trigrams are heavily compressed using radix tries and
 `quasi-succinct indexes <https://arxiv.org/abs/1206.4300>`_ employing
-Elias-Fano encoding. This enables the trigrams to be stored in memory
-for very fast queries (typically ~30 microseconds per lookup). The library
+Elias-Fano encoding. This enables the trigrams to be mapped into memory
+for very fast queries (typically ~40 microseconds per lookup). The library
 is implemented in Python and C/C++, glued together via
 `CFFI <https://cffi.readthedocs.io/en/latest/>`_.
 
@@ -32,8 +32,6 @@ Icegrams is useful for instance in spelling correction, predictive typing,
 to help disabled people write text faster, and for various text generation,
 statistics and modelling tasks.
 
-Documentation for Icegrams is `available here <https://greynir.is/icegrams/>`_.
-
 Icegrams is built on the database of `Greynir.is <https://greynir.is>`_,
 comprising over 6 million sentences parsed from Icelandic news articles.
 
@@ -44,8 +42,26 @@ Example
 >>> from icegrams import Ngrams
 >>> ng = Ngrams()
 >>> ng.freq("Ísland")
+42019
+>>>> ng.prob("Ísland")
+0.0003979926900206475
+>>>> ng.logprob("Ísland")
+-7.8290769196308005
+>>>>
 >>> ng.freq("Katrín", "Jakobsdóttir")
+3518
+>>>> ng.prob("Katrín", "Jakobsdóttir")
+0.23298013245033142
+>>>> ng.prob("Katrín", "Júlíusdóttir")
+0.013642384105960274
 >>> ng.freq("velta", "fyrirtækisins", "er")
+5
+>>>> ng.prob("velta", "fyrirtækisins", "er")
+0.2272727272727272
+>>>> ng.prob("velta", "fyrirtækisins", "var")
+0.04545454545454544
+>>>> ng.freq("xxx", "yyy", "zzz")
+1
 
 *************
 Prerequisites
@@ -90,9 +106,9 @@ virtualenv), then run::
 
     $ python -m pytest
 
-*************
-Documentation
-*************
+*********
+Reference
+*********
 
-Please consult the `Icegram documentation <https://greynir.is/icegrams/>`_.
+TBD
 
