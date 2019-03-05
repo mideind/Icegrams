@@ -41,6 +41,7 @@
 typedef unsigned int UINT;
 typedef uint8_t BYTE;
 typedef uint32_t UINT32;
+typedef uint64_t UINT64;
 
 // Map a word to an offset within the memory mapped buffer
 extern "C" UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
@@ -48,6 +49,6 @@ extern "C" UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
 extern "C" UINT bitselect(const BYTE* pb, UINT n);
 extern "C" UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
 extern "C" UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-extern "C" UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-extern "C" UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+extern "C" UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
+extern "C" UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
 
