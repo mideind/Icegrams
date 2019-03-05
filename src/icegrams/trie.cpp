@@ -481,6 +481,33 @@ UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    return (nHighPart << nLb) | nLowPart;
 }
 
+UINT searchMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n)
+{
+   // Do a binary search for the value n within the range [nP1, nP2> in the Elias-Fano list
+   while (1) {
+      if (nP1 >= nP2)
+         return (UINT)0xFFFFFFFF;
+      UINT nMid = (nP1 + nP2) / 2;
+      UINT64 nThis = lookupMonotonic(pb, nQuantumSize, nMid);
+      if (nThis == n)
+         return nMid;
+      if (nThis > n)
+         nP2 = nMid;
+      else
+         nP1 = nMid + 1;
+   }
+}
+
+UINT searchMonotonicPrefix(const BYTE* pb, UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n)
+{
+   // Add a prefix sum to the value n before searching for it in the Elias-Fano list
+   if (nP1 >= nP2)
+      return (UINT)0xFFFFFFFF;
+   if (nP1)
+      n += lookupMonotonic(pb, nQuantumSize, nP1 - 1);
+   return searchMonotonic(pb, nQuantumSize, nP1, nP2, n);
+}
+
 #pragma pack(push, 1)
 
 // The header of a packed PartitionedMonotonicList instance
@@ -493,7 +520,7 @@ struct PartitionListHeader {
 
 UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex)
 {
-   /* Look up a value from a partitioned monotonic (Elias-Fano) list */
+   // Look up a value from a partitioned monotonic (Elias-Fano) list
    UINT nQ = nIndex / nOuterQuantum;
    UINT nR = nIndex % nOuterQuantum;
    const PartitionListHeader* pHeader = (const PartitionListHeader*)pb;
@@ -501,6 +528,39 @@ UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, U
    const BYTE* pbInner = pb + pHeader->anChunkIndex[nQ];
    UINT64 nPrefix = nQ ? lookupMonotonic(pbOuter, nInnerQuantum, nQ - 1) : 0;
    return nPrefix + lookupMonotonic(pbInner, nInnerQuantum, nR);
+}
+
+UINT searchPartition(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum,
+   UINT nP1, UINT nP2, UINT64 n)
+{
+   // Do a binary search for the value n within the range [nP1, nP2> in the
+   // partitioned Elias-Fano list
+   while (1) {
+      if (nP1 >= nP2)
+         return (UINT)0xFFFFFFFF;
+      UINT nMid = (nP1 + nP2) / 2;
+      UINT64 nThis = lookupPartition(pb, nOuterQuantum, nInnerQuantum, nMid);
+      if (nThis == n)
+         return nMid;
+      if (nThis > n)
+         nP2 = nMid;
+      else
+         nP1 = nMid + 1;
+   }
+}
+
+UINT searchPartitionPrefix(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum,
+   UINT nP1, UINT nP2, UINT64 n)
+{
+   // Add a prefix sum to the value n before searching for it in
+   // the partitioned Elias-Fano list
+   if (nP1 >= nP2)
+      return (UINT)0xFFFFFFFF;
+   if (nP1)
+      n += lookupPartition(pb, nOuterQuantum, nInnerQuantum, nP1 - 1);
+   return searchPartition(pb, nOuterQuantum, nInnerQuantum, nP1, nP2, n);
 }
 
 

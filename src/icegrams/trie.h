@@ -45,10 +45,27 @@ typedef uint64_t UINT64;
 
 // Map a word to an offset within the memory mapped buffer
 extern "C" UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
+
 // Return the index of the n-th 1-bit within the byte buffer pb
 extern "C" UINT bitselect(const BYTE* pb, UINT n);
 extern "C" UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
+
 extern "C" UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-extern "C" UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-extern "C" UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+
+extern "C" UINT64 lookupMonotonic(const BYTE* pb,
+   UINT nQuantumSize, UINT nIndex);
+extern "C" UINT64 lookupPartition(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+
+extern "C" UINT searchMonotonic(const BYTE* pb,
+   UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);
+extern "C" UINT searchMonotonicPrefix(const BYTE* pb,
+   UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);
+
+extern "C" UINT searchPartition(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum,
+   UINT nP1, UINT nP2, UINT64 n);
+extern "C" UINT searchPartitionPrefix(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum,
+   UINT nP1, UINT nP2, UINT64 n);
 

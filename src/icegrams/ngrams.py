@@ -24,11 +24,11 @@
     In summary, the scheme is broadly as follows:
 
     1) All distinct unigrams (tokens) are stored in a compressed
-       Trie data structure, yielding a mapping unigram -> id,
+       Trie data structure, yielding a mapping (unigram -> id),
        where the id is a 32-bit unsigned integer.
     2) Unigram ids are allocated in order of descending
        frequency of occurrence in the ngram list (note: not
-       the actual unigram frequency in the source text).
+       the actual unigram frequency counts in the source text).
        Thus, the unigram which occurs most often gets the
        lowest id. However, an exception is made for the empty
        (null) unigram which always has id 0 regardless of
@@ -36,12 +36,13 @@
     3) At the unigram level, we store a sequence of pointers
        to the child bigrams. Thus, if the unigram with id N
        leads into K (>=0) child bigrams, the unigram pointer list
-       entry UP[N] will contain P and entry UP[N+1] will contain
-       P+K. UP[0] is always 0. The UP list is monotonically
+       entry UP[N] will contain M and entry UP[N+1] will contain
+       M+K. UP[0] is always 0. The UP list is monotonically
        increasing (although K=0 is allowed) and can be stored
        with Elias-Fano encoding.
-    4) At the bigram level, we store an id list in increasing
-       id order, with a prefix sum scheme. To all entries in a
+    4) At the bigram level, for each unigram parent of a list
+       of bigram children, we store an id list in increasing
+       id order, using a prefix sum scheme. To all entries in a
        unigram's child list BI, spanning from BI[UP[N]] up to
        BI[UP[N+1]], we add the constant BI[UP[N]-1] (where
        BI[-1] is taken to be 0). This enables the id list to
@@ -66,6 +67,17 @@
        frequency list is coded in 2N bits where N is the sum of
        the lengths of the code words used. The most common bucket
        numbers thus take only a couple of bits each.
+    7) A further twist in the case of bigram and trigram id lists
+       (those being the biggest ones) is that we use partitioned
+       Elias-Fano instead of a regular monotonic Elias-Fano encoding.
+       A partitioned list is divided into quanta of fixed size, with
+       the starting value of each quantum stored in a separate
+       upper-level list, and the items within each quantum having
+       the start value subtracted from them (meaning that the first
+       item of each quantum is always stored as 0). Lookup is then
+       done first in the upper-level list (at index n // Q) and
+       secondly within the appropriate quantum (at index n % Q), where
+       Q is the quantum size.
 
 """
 
@@ -285,36 +297,6 @@ class BaseList:
         # !!! TODO: Optimize this
         return (self.lookup(ix), self.lookup(ix + 1))
 
-    def search_prefix(self, p1, p2, i):
-        """ Binary search for the identifier i in the range [p1, p2> """
-        # In this case an identifier list id0, id1, ..., idN was stored
-        # using a prefix sum, which is the value of the preceding
-        # identifier entry in the list (i.e. id(-1)). The prefix
-        # sum was added to all entries in the list, so we add it
-        # to i before doing a normal binary search.
-        if p1 >= p2:
-            return None
-        if p1 > 0:
-            # The prefix sum of element 0 is 0
-            i += self.lookup(p1 - 1)
-        return self.search(p1, p2, i)
-
-    def search(self, p1, p2, i):
-        """ Binary search for the identifier i in the range [p1, p2> """
-        while True:
-            if p1 >= p2:
-                return None
-            mid = (p1 + p2) // 2
-            this_id = self.lookup(mid)
-            if this_id == i:
-                return mid
-            if this_id > i:
-                # Too high: lower our roof
-                p2 = mid
-            else:
-                # Too low (this_id < i): raise our floor
-                p1 = mid + 1
-
 
 class MonotonicList(BaseList):
 
@@ -468,6 +450,18 @@ class MonotonicList(BaseList):
             raise ValueError("Lookup not allowed from uncompressed list")
         return trie_cffi.lookupMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix)
 
+    def search(self, p1, p2, i):
+        if self.ffi_b is None:
+            raise ValueError("Search not allowed in uncompressed list")
+        r = trie_cffi.searchMonotonic(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
+        return None if r == 0xFFFFFFFF else r
+
+    def search_prefix(self, p1, p2, i):
+        if self.ffi_b is None:
+            raise ValueError("Search not allowed in uncompressed list")
+        r = trie_cffi.searchMonotonicPrefix(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
+        return None if r == 0xFFFFFFFF else r
+
 
 class PartitionedMonotonicList(BaseList):
 
@@ -577,6 +571,24 @@ class PartitionedMonotonicList(BaseList):
         return trie_cffi.lookupPartition(
             self.ffi_b, self.QUANTUM_SIZE, MonotonicList.QUANTUM_SIZE, ix
         )
+
+    def search(self, p1, p2, i):
+        if self.ffi_b is None:
+            raise ValueError("Search not allowed in uncompressed list")
+        r = trie_cffi.searchPartition(
+            self.ffi_b, self.QUANTUM_SIZE, MonotonicList.QUANTUM_SIZE,
+            p1, p2, i
+        )
+        return None if r == 0xFFFFFFFF else r
+
+    def search_prefix(self, p1, p2, i):
+        if self.ffi_b is None:
+            raise ValueError("Search not allowed in uncompressed list")
+        r = trie_cffi.searchPartitionPrefix(
+            self.ffi_b, self.QUANTUM_SIZE, MonotonicList.QUANTUM_SIZE,
+            p1, p2, i
+        )
+        return None if r == 0xFFFFFFFF else r
 
 
 class _Node:
@@ -867,7 +879,7 @@ class NgramStorage:
             return 1
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
-        i = self._bigram_ml.search_prefix(p1, p2, i1)
+        i = self._bigram_pl.search_prefix(p1, p2, i1)
         return self.lookup_frequency(2, self._bigram_freqs, i) + 1
 
     def bigram_logprob(self, i0, i1):
@@ -897,7 +909,7 @@ class NgramStorage:
             return self.bigram_frequency(i0, i1)
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
-        i = self._bigram_ml.search_prefix(p1, p2, i1)
+        i = self._bigram_pl.search_prefix(p1, p2, i1)
         if i is None:
             # Not found
             return 1
@@ -907,12 +919,12 @@ class NgramStorage:
         # Apply the Pibiri & Venturini trick:
         # Remap i2 to an index within the list of children of i1
         q1, q2 = self._unigram_ptrs_ml.lookup_pair(i1)
-        remapped_id = self._bigram_ml.search_prefix(q1, q2, i2)
+        remapped_id = self._bigram_pl.search_prefix(q1, q2, i2)
         if remapped_id is None:
             # This can happen if (i0, i1) is present but (i1, i2)
             # is not. In this case, (i0, i1, i2) is not found.
             return 1
-        i = self._trigram_ml.search_prefix(p1, p2, remapped_id - q1)
+        i = self._trigram_pl.search_prefix(p1, p2, remapped_id - q1)
         return self.lookup_frequency(3, self._trigram_freqs, i) + 1
 
     def trigram_logprob(self, i0, i1, i2):
@@ -958,9 +970,9 @@ class NgramStorage:
             return []
         lp0 = math.log(self.lookup_frequency(1, self._unigram_freqs, i0) + 1)
         result = []
-        prefix_sum = 0 if p1 is 0 else self._bigram_ml.lookup(p1 - 1)
+        prefix_sum = 0 if p1 is 0 else self._bigram_pl.lookup(p1 - 1)
         for i in range(p1, p2):
-            j = self._bigram_ml.lookup(i) - prefix_sum
+            j = self._bigram_pl.lookup(i) - prefix_sum
             lpi = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
             result.append((j, lpi - lp0))
         return sorted(result, key=lambda e:e[1], reverse=True)[0:n]
@@ -972,7 +984,7 @@ class NgramStorage:
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         if p1 >= p2:
             return []
-        i = self._bigram_ml.search_prefix(p1, p2, i1)
+        i = self._bigram_pl.search_prefix(p1, p2, i1)
         if i is None:
             # Not found
             return []
@@ -981,16 +993,16 @@ class NgramStorage:
             return []
         # Cache the bigram range of i1
         q1, q2 = self._unigram_ptrs_ml.lookup_pair(i1)
-        prefix_sum_bi = self._bigram_ml.lookup(q1 - 1) if q1 > 0 else 0
+        prefix_sum_bi = self._bigram_pl.lookup(q1 - 1) if q1 > 0 else 0
         # Cache the bigram frequency of (i0, i1)
         lp0 = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
         result = []
-        prefix_sum_tri = self._trigram_ml.lookup(p1 - 1) if p1 > 0 else 0
+        prefix_sum_tri = self._trigram_pl.lookup(p1 - 1) if p1 > 0 else 0
         for i in range(p1, p2):
             # trigram[i] is a remapped id, i.e. it's an offset
             # into the bigram children of i1
-            remapped_id = self._trigram_ml.lookup(i) - prefix_sum_tri
-            j = self._bigram_ml.lookup(q1 + remapped_id) - prefix_sum_bi
+            remapped_id = self._trigram_pl.lookup(i) - prefix_sum_tri
+            j = self._bigram_pl.lookup(q1 + remapped_id) - prefix_sum_bi
             lpi = math.log(self.lookup_frequency(3, self._trigram_freqs, i) + 1)
             result.append((j, lpi - lp0))
         return sorted(result, key=lambda e:e[1], reverse=True)[0:n]
@@ -1259,7 +1271,6 @@ class NgramStorage:
                 no_child_node_count += 1
             if b is not None:
                 # The 0H aligns to 16 bits
-                # assert b"0x00" not in b
                 f.write(struct.pack("{0}s0H".format(len(b) + 1), b))
             if parent_loc > 0:
                 # Fix up the parent
@@ -1406,10 +1417,8 @@ class NgramStorage:
         # Write the bigram level data
         print("\nBi-ids are {0:,}".format(len(bi_ids)))
         pl.compress(bi_ids)
-        # ml.compress(bi_ids)
         f.write(pl.to_bytes())
         print("Bi_ids compressed with partitions: {0:,} bytes".format(len(pl.to_bytes())))
-        # print("Bi-ids: {0}\n".format(ml))
 
         print("Bi-pointers are {0:,}".format(len(ptrs)))
         ml.compress(ptrs)
@@ -1421,11 +1430,9 @@ class NgramStorage:
         # (There are no pointers at the trigram level)
         print("Tri-ids are {0:,}".format(len(tri_ids)))
         pl.compress(tri_ids)
-        # ml.compress(tri_ids)
         tri_id_loc = f.tell()
         f.write(pl.to_bytes())
         print("Tri_ids compressed with partitions: {0:,} bytes".format(len(pl.to_bytes())))
-        # print("Tri-ids: {0}\n".format(ml))
 
         pl = ml = None
 
@@ -1630,15 +1637,13 @@ class NgramStorage:
         self._unigram_ptrs_ml = MonotonicList(self._unigram_ptrs)
 
         # Instantiate the partitioned list for bigrams
-        self._bigram_ml = PartitionedMonotonicList(self._bigrams)
-        # self._bigram_ml = MonotonicList(self._bigrams)
+        self._bigram_pl = PartitionedMonotonicList(self._bigrams)
 
         # Instantiate the MonotonicList for bigram pointers
         self._bigram_ptrs_ml = MonotonicList(self._bigram_ptrs)
 
         # Instantiate the partitioned list for trigrams
-        self._trigram_ml = PartitionedMonotonicList(self._trigrams)
-        # self._trigram_ml = MonotonicList(self._trigrams)
+        self._trigram_pl = PartitionedMonotonicList(self._trigrams)
 
         # Load the freqs rank list into memory
         self.freqs = []
@@ -1664,9 +1669,9 @@ class NgramStorage:
             self._mmap_buffer = None
             self.freqs = None
             self._unigram_ptrs_ml = None
-            self._bigram_ml = None
+            self._bigram_pl = None
             self._bigram_ptrs_ml = None
-            self._trigram_ml = None
+            self._trigram_pl = None
             self._b.close()
             self._b = None
 

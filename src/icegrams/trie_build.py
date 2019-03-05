@@ -50,9 +50,25 @@ declarations = """
     UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
     UINT bitselect(const BYTE* pb, UINT n);
     UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
-    UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-    UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-    UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+
+    UINT lookupFrequency(const BYTE* pb,
+        UINT nQuantumSize, UINT nIndex);
+    UINT64 lookupMonotonic(const BYTE* pb,
+        UINT nQuantumSize, UINT nIndex);
+    UINT64 lookupPartition(const BYTE* pb,
+        UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+
+    UINT searchMonotonic(const BYTE* pb,
+        UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);
+    UINT searchMonotonicPrefix(const BYTE* pb,
+        UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);
+
+    UINT searchPartition(const BYTE* pb,
+        UINT nOuterQuantum, UINT nInnerQuantum,
+        UINT nP1, UINT nP2, UINT64 n);
+    UINT searchPartitionPrefix(const BYTE* pb,
+        UINT nOuterQuantum, UINT nInnerQuantum,
+        UINT nP1, UINT nP2, UINT64 n);
 
 """
 

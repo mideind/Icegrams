@@ -97,3 +97,5 @@ def test_partitioned_list():
 def test_trigrams():
     n = Ngrams()
     assert n.freq('hálfur', 'millimetri', 'að') == 2
+    assert n.freq("xxx", "yyy", "zzz") == 1
+    assert n.freq("Hann", "var", "zzz") == 1
