@@ -384,7 +384,7 @@ struct MonoListHeader {
 
 #pragma pack(pop)
 
-UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
+UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
 {
    /* Returns the integer at index ix within the sequence */
    // Extract information about the monotonic (Elias-Fano) list
@@ -414,21 +414,21 @@ UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    // or because we are starting from a nonzero index within the byte,
    // or both.
    UINT nEnd = nLb + nLowBitIndex;
-   UINT nBits = 0;
+   UINT64 nBits = 0;
    UINT nBitCount = 0;
    while (1) {
-      nBits |= ((UINT)pb[nBy]) << nBitCount;
+      nBits |= ((UINT64)pb[nBy]) << nBitCount;
       nBitCount += 8;
       if (nBitCount >= nEnd)
          break;
       nBy += 1;
    }
    // Extract the low part from the accumulated bits
-   UINT nLowPart = (nBits >> nLowBitIndex) & nLowMask;
+   UINT64 nLowPart = (nBits >> nLowBitIndex) & nLowMask;
    if (!nHb)
       // No high bits: we're done
       return nLowPart;
-   UINT nHighPart = 0;
+   UINT64 nHighPart = 0;
    // Now for the high part
    // Find out where it starts
    nBy = (n * nLb + 7) >> 3;
@@ -491,7 +491,7 @@ struct PartitionListHeader {
 
 #pragma pack(pop)
 
-UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex)
+UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex)
 {
    /* Look up a value from a partitioned monotonic (Elias-Fano) list */
    UINT nQ = nIndex / nOuterQuantum;
@@ -499,7 +499,7 @@ UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UIN
    const PartitionListHeader* pHeader = (const PartitionListHeader*)pb;
    const BYTE* pbOuter = pb + sizeof(UINT32) * (1 + pHeader->nChunks);
    const BYTE* pbInner = pb + pHeader->anChunkIndex[nQ];
-   UINT nPrefix = nQ ? lookupMonotonic(pbOuter, nInnerQuantum, nQ - 1) : 0;
+   UINT64 nPrefix = nQ ? lookupMonotonic(pbOuter, nInnerQuantum, nQ - 1) : 0;
    return nPrefix + lookupMonotonic(pbInner, nInnerQuantum, nR);
 }
 

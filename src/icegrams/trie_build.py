@@ -45,13 +45,14 @@ declarations = """
     typedef unsigned int UINT;
     typedef uint8_t BYTE;
     typedef uint32_t UINT32;
+    typedef uint64_t UINT64;
 
     UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
     UINT bitselect(const BYTE* pb, UINT n);
     UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
     UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-    UINT lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
-    UINT lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+    UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
+    UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
 
 """
 

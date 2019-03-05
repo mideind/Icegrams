@@ -1,9 +1,11 @@
 
 from random import randint
 
+from icegrams import Ngrams
 from icegrams.ngrams import (
     BitArray, MonotonicList, PartitionedMonotonicList
 )
+
 
 def test_compressed_list():
     """ Test the compressed list classes """
@@ -52,6 +54,7 @@ def test_compressed_list():
     ml.compress([17])
     assert ml[0] == 17
 
+
 def test_partitioned_list():
     pl = PartitionedMonotonicList()
     pl.compress([i for i in range(18000)])
@@ -89,3 +92,8 @@ def test_partitioned_list():
     assert pl[160177] == 160177*17
     assert pl[343085] == 343085*17
     assert pl[1343085] == 1343085*17
+
+
+def test_trigrams():
+    n = Ngrams()
+    assert n.freq('hálfur', 'millimetri', 'að') == 2
