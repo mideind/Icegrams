@@ -98,10 +98,10 @@ else:
     from trie import Trie
 
 
-TSV_FILENAME = "trigrams.tsv"
-# TSV_FILENAME = "trigrams-subset.tsv"
-BINARY_FILENAME = "trigrams.bin"
-# BINARY_FILENAME = "trigrams-subset.bin"
+# TSV_FILENAME = "trigrams.tsv"
+TSV_FILENAME = "trigrams-subset.tsv"
+# BINARY_FILENAME = "trigrams.bin"
+BINARY_FILENAME = "trigrams-subset.bin"
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
 UINT8 = struct.Struct("<B")
@@ -562,6 +562,10 @@ class PartitionedMonotonicList(BaseList):
     def to_bytes(self):
         """ Return the byte buffer containing the compressed list """
         return self.b
+
+    def __len__(self):
+        """ Return the compressed list size in bytes """
+        return 0 if self.b is None else len(self.b)
 
     def lookup(self, ix):
         """ Lookup a value from the compressed list, by index """
