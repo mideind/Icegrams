@@ -98,10 +98,10 @@ else:
     from trie import Trie
 
 
-# TSV_FILENAME = "trigrams.tsv"
-TSV_FILENAME = "trigrams-subset.tsv"
-# BINARY_FILENAME = "trigrams.bin"
-BINARY_FILENAME = "trigrams-subset.bin"
+TSV_FILENAME = "trigrams.tsv"
+# TSV_FILENAME = "trigrams-subset.tsv"
+BINARY_FILENAME = "trigrams.bin"
+# BINARY_FILENAME = "trigrams-subset.bin"
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
 UINT8 = struct.Struct("<B")
