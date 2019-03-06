@@ -573,5 +573,3 @@ UINT searchPartitionPrefix(const BYTE* pb,
       n += lookupPartition(pb, nOuterQuantum, nInnerQuantum, nP1 - 1);
    return searchPartition(pb, nOuterQuantum, nInnerQuantum, nP1, nP2, n);
 }
-
-
