@@ -563,6 +563,10 @@ class PartitionedMonotonicList(BaseList):
         """ Return the byte buffer containing the compressed list """
         return self.b
 
+    def __len__(self):
+        """ Return the compressed list size in bytes """
+        return 0 if self.b is None else len(self.b)
+
     def lookup(self, ix):
         """ Lookup a value from the compressed list, by index """
         if self.ffi_b is None:
