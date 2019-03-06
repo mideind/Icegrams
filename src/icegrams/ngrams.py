@@ -82,7 +82,7 @@
 """
 
 import time
-from collections import defaultdict
+from collections import defaultdict, Counter
 from bisect import bisect_left
 import struct
 import math
@@ -95,7 +95,7 @@ if __package__:
     from ._trie import lib as trie_cffi, ffi
 else:
     from _trie import lib as trie_cffi, ffi
-    from trie import Trie
+    from trie import Trie, HuffmanCodec
 
 
 TSV_FILENAME = "trigrams.tsv"
@@ -554,10 +554,6 @@ class PartitionedMonotonicList(BaseList):
             parts.append(b"\x00" * (4 - frag))
         self.b = b"".join(parts)
         self.ffi_b = ffi.from_buffer(self.b)
-        print(
-            "Completed compression of PartitionedMonotonicList, sublists are {0:,}"
-            .format(len(chunks))
-        )
 
     def to_bytes(self):
         """ Return the byte buffer containing the compressed list """
@@ -891,6 +887,32 @@ class NgramStorage:
                 # Make sure that everything is synced up
                 assert trie_ix == unigram_id
                 ids[w] = trie_ix
+
+        print("Starting creation of code book for {0:,}-word vocabulary".format(len(vocab_list)))
+        # Create a code book for the letters of the alphabet
+        letter_count = Counter()
+        for (w, _) in vocab_list:
+            letter_count.update(w)
+
+        codec = HuffmanCodec(letter_count)
+
+        compressed_vocab = BitArray()
+        max_num_bits = 0
+        codebook = codec.tree
+        num_plain_bytes = 0
+        for (w, _) in vocab_list:
+            num_bits = sum(codebook[c][1] for c in w)
+            assert num_bits < 1 << 9
+            if num_bits > max_num_bits:
+                max_num_bits = num_bits
+            compressed_vocab.append(num_bits, 9)
+            for c in w:
+                compressed_vocab.append(*codebook[c])
+            num_plain_bytes += len(w) + 1
+        print(
+            "Compressed vocab is {0:,} bytes, max_num_bits is {1}, plain bytes are {2:,}"
+            .format(len(compressed_vocab), max_num_bits, num_plain_bytes)
+        )
         vocab_list = None
 
         # Second pass: index the trigrams
@@ -964,6 +986,8 @@ class NgramStorage:
                     else:
                         # Sum up all the unigram counts
                         ucnt += c
+
+        ids = None
 
         if using_empty:
             # Save space by storing the counts of (0, 0, w2) in
@@ -1042,7 +1066,6 @@ class NgramStorage:
             ptrs.append(ix)
         # Now, compress the pointer list using Elias-Fano encoding
         ml = MonotonicList()
-        print("Uni-pointers are {0:,}".format(len(ptrs)))
         ml.compress(ptrs)
         # ...and write it to our compressed buffer
         f.write(ml.to_bytes())
