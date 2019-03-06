@@ -9,6 +9,8 @@ n = icegrams.Ngrams()
 # FILENAME="3-grams.sorted"
 FILENAME="trigrams-subset.tsv"
 
+# print("Word_to_id('halló) is {0}".format(n.ngrams.word_to_id('halló')))
+
 d = []
 with open(FILENAME, encoding="utf-8") as f:
     for line in f:

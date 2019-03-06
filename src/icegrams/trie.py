@@ -253,27 +253,27 @@ class Trie:
             else:
                 # Multi-character fragment:
                 # Store the value first, in 32 bits, and then
-                # the fragment bytes with a trailing zero, padded to 32 bits
+                # the fragment bytes with a trailing zero
                 f.write(UINT32.pack(childless_bit | (val & 0x007FFFFF)))
                 b = node.fragment
                 multi_char_node_count += 1
             # Write the child nodes, if any
             if node.children:
-                f.write(UINT16.pack(len(node.children)))
-                # !!! NOTE: The following could be compressed to
-                # !!! a single child pointer, with a corresponding
-                # !!! increase in complexity in the lookup algorithm,
-                # !!! since the children are guaranteed to be
-                # !!! consecutive in the file.
+                f.write(bytes([len(node.children)]))
+                # Write a placeholder for the child pointer
+                # - will be overwritten
+                pos = f.tell()
+                f.write(UINT32.pack(0xFFFFFFFF))
                 for child in node.children:
-                    todo.append((child, f.tell()))
-                    # Write a placeholder - will be overwritten
-                    f.write(UINT32.pack(0xFFFFFFFF))
+                    todo.append((child, pos))
+                    # Since the children are consecutive in the file,
+                    # we only write the address of the first child
+                    # and calculate the address of the others at run-time
+                    pos = 0
             else:
                 no_child_node_count += 1
             if b is not None:
-                # The 0H aligns to 16 bits
-                f.write(struct.pack("{0}s0H".format(len(b) + 1), b))
+                f.write(struct.pack("{0}s".format(len(b) + 1), b))
             if parent_loc > 0:
                 # Fix up the parent
                 end = f.tell()

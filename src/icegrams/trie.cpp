@@ -63,16 +63,20 @@ private:
    UINT m_nWordLen;
    const BYTE* m_pbWord;
 
+   const BYTE* ptr(UINT nOffset) const
+      { return this->m_pbMap + nOffset; }
+
    // Return the UINT32 at the given offset, as a native UINT
-   UINT uintAt(UINT nOffset)
-      { return (UINT)*(UINT32*)(this->m_pbMap + nOffset); }
+   UINT uintAt(UINT nOffset) const
+      { return (UINT)*(UINT32*)this->ptr(nOffset); }
 
    // Return the UINT16 at the given offset, as a native UINT
-   UINT uint16At(UINT nOffset)
-      { return (UINT)*(UINT16*)(this->m_pbMap + nOffset); }
+   UINT uint16At(UINT nOffset) const
+      { return (UINT)*(UINT16*)this->ptr(nOffset); }
 
-   INT matches(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex);
-   UINT lookup(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex);
+   UINT childSize(UINT nNodeOffset) const;
+   INT matches(UINT nNodeOffset, UINT nFragmentIndex) const;
+   UINT lookup(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex) const;
 
 public:
 
@@ -87,7 +91,7 @@ public:
 };
 
 
-INT Trie::matches(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex)
+INT Trie::matches(UINT nNodeOffset, UINT nFragmentIndex) const
 {
    /* If the lookup fragment word[fragment_index:] matches the node,
       return the number of characters matched. Otherwise,
@@ -96,12 +100,11 @@ INT Trie::matches(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex)
       (The lexicographical ordering here is actually a comparison
       between the ordinal numbers of characters within an alphabet.)
    */
+   UINT nHdr = this->uintAt(nNodeOffset);
    if (nHdr & 0x80000000) {
       // Single-character fragment
       BYTE ch = ((nHdr >> 23) & 0x7F); // Index of character in alphabet (can't be zero)
       BYTE chWord = this->m_pbWord[nFragmentIndex];
-      /* printf("Single-char fragment: comparing ch %02X with chWord %02X\n",
-         (UINT)ch, (UINT)chWord); */
       if (ch == chWord) {
          // Match
          return 1;
@@ -114,9 +117,7 @@ INT Trie::matches(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex)
       nFrag = nNodeOffset + sizeof(UINT32);
    }
    else {
-      UINT nNumChildren = this->uint16At(nNodeOffset + sizeof(UINT32));
-      nFrag = nNodeOffset + sizeof(UINT32) + sizeof(UINT16)
-         + sizeof(UINT32) * nNumChildren;
+      nFrag = nNodeOffset + sizeof(UINT32) + sizeof(BYTE) + sizeof(UINT32);
    }
    INT iMatched = 0;
    UINT nWordLen = (UINT)this->m_nWordLen;
@@ -137,44 +138,54 @@ INT Trie::matches(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex)
    return (*pFrag > this->m_pbWord[nFragmentIndex + iMatched]) ? 0 : -1;
 }
 
-UINT Trie::lookup(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex)
+UINT Trie::childSize(UINT nNodeOffset) const {
+   // Return the size of the node whose offset is nNodeOffset
+   const UINT nHdr = this->uintAt(nNodeOffset);
+   const UINT nChildrenSize = (nHdr & 0x40000000) ? 0 : sizeof(BYTE) + sizeof(UINT32);
+   const UINT nStrLen = (nHdr & 0x80000000) ?
+      0 : (UINT)strlen((char*)ptr(nNodeOffset + sizeof(UINT32) + nChildrenSize)) + 1;
+   return (UINT)(sizeof(UINT32) + nChildrenSize + nStrLen);
+}
+
+UINT Trie::lookup(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex) const
 {
    while (TRUE) {
-      /* printf("Trie::lookup nNodeOffset %08X nHdr %08X nFragmentIndex %u nWordLen %u\n",
-         nNodeOffset, nHdr, nFragmentIndex, this->m_nWordLen); */
       if (nFragmentIndex >= this->m_nWordLen) {
          // We've arrived at our destination:
          // return the associated value (unless this is an interim node)
          UINT nValue = nHdr & 0x007FFFFF;
-         /* printf("At destination: value is %08X\n", nValue); */
          return (nValue == 0x007FFFFF) ? NOT_FOUND : nValue;
       }
       if (nHdr & 0x40000000) {
          // Childless node: nowhere to go
-         /* printf("Childless node, nowhere to go\n"); */
          return NOT_FOUND;
       }
-      UINT nNumChildren = this->uint16At(nNodeOffset + sizeof(UINT32));
-      UINT nChildOffset = nNodeOffset + sizeof(UINT32) + sizeof(UINT16);
+      const UINT nNumChildren = (UINT)*this->ptr(nNodeOffset + sizeof(UINT32));
+      const UINT nChildOffset = nNodeOffset + sizeof(UINT32) + sizeof(BYTE);
       // Binary search for a matching child node
       UINT nLo = 0;
       UINT nHi = nNumChildren;
+      // Prepare a local array of child offsets, based on the
+      // offset of the 0th child and adding the sizes of the
+      // other children, since they are consecutive in the file.
+      // Note that we cannot have more than 127 children of a single node.
+      UINT nOffsets[127];
+      nOffsets[0] = this->uintAt(nChildOffset);
+      for (UINT i = 1; i < nNumChildren; i++)
+         nOffsets[i] = nOffsets[i-1] + this->childSize(nOffsets[i-1]);
       BOOL fContinue = TRUE;
       do {
-         /* printf("Top of binary search loop: nLo %u nHi %u\n", nLo, nHi); */
          if (nLo >= nHi) {
             // No child route matches
             return NOT_FOUND;
          }
-         UINT nMid = (nLo + nHi) / 2;
-         UINT nMidLoc = nChildOffset + nMid * sizeof(UINT32);
-         UINT nMidOffset = this->uintAt(nMidLoc);
-         nHdr = this->uintAt(nMidOffset);
-         /* printf("Child offset is %08X, new nHdr is %08X\n", nMidOffset, nHdr); */
-         INT iMatchLen = this->matches(nMidOffset, nHdr, nFragmentIndex);
+         const UINT nMid = (nLo + nHi) / 2;
+         const UINT nMidOffset = nOffsets[nMid];
+         const INT iMatchLen = this->matches(nMidOffset, nFragmentIndex);
          if (iMatchLen > 0) {
              // Set a new starting point and restart from the top
              nNodeOffset = nMidOffset;
+             nHdr = this->uintAt(nNodeOffset);
              nFragmentIndex += iMatchLen;
              fContinue = FALSE;
          }
