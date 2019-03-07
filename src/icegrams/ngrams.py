@@ -100,7 +100,7 @@ if __package__:
     from ._trie import lib as trie_cffi, ffi
 else:
     from _trie import lib as trie_cffi, ffi
-    from trie import Trie, HuffmanCodec
+    from trie import Trie
 
 
 # TSV_FILENAME = "trigrams.tsv"
@@ -622,6 +622,8 @@ class NgramStorage:
     # We store an index position in the frequency array once
     # every FREQ_QUANTUM_SIZE frequency values
     FREQ_QUANTUM_SIZE = 1024
+    # Index positions for vocabulary
+    VOCAB_QUANTUM_SIZE = 256
 
     VERSION = b'Reynir 001.00.00'
     assert len(VERSION) == 16
@@ -660,6 +662,24 @@ class NgramStorage:
             # The word contains a character that is not in our alphabet
             return None
         return None if m == 0xFFFFFFFF else m
+
+    def id_to_word(self, n):
+        """ Convert a vocabulary index back to the original unigram text """
+        q, r = divmod(n, self.VOCAB_QUANTUM_SIZE)
+        # Find the start of our quantum
+        p = 0 if q == 0 else UINT32.unpack_from(self._vocab, 4 * q)[0]
+        # Skip past words in this quantum
+        while r:
+            while self._compressed_vocab[p]:
+                p += 1
+            p += 1
+            r -= 1
+        # Accumulate our word
+        start = p
+        while self._compressed_vocab[p]:
+            p += 1
+        # Convert it back to a string and return it
+        return to_str(self._compressed_vocab[start:p])
 
     def indices(self, *args):
         """ Convert word strings to vocabulary indices, or None
@@ -794,7 +814,8 @@ class NgramStorage:
             j = self._bigram_pl.lookup(i) - prefix_sum
             lpi = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
             result.append((j, lpi - lp0))
-        return sorted(result, key=lambda e:e[1], reverse=True)[0:n]
+        result = sorted(result, key=lambda e:e[1], reverse=True)[0:n]
+        return [(self.id_to_word(j), lp) for j, lp in result]
 
     def bigram_succ(self, n, i0, i1):
         """ Return successors to the bigram (i0, i1) """
@@ -824,7 +845,8 @@ class NgramStorage:
             j = self._bigram_pl.lookup(q1 + remapped_id) - prefix_sum_bi
             lpi = math.log(self.lookup_frequency(3, self._trigram_freqs, i) + 1)
             result.append((j, lpi - lp0))
-        return sorted(result, key=lambda e:e[1], reverse=True)[0:n]
+        result = sorted(result, key=lambda e:e[1], reverse=True)[0:n]
+        return [(self.id_to_word(j), lp) for j, lp in result]
 
     _SUCC_DISPATCH = {1: unigram_succ, 2:bigram_succ}
 
@@ -898,9 +920,8 @@ class NgramStorage:
         print("Starting compression of {0:,}-word vocabulary".format(len(vocab_list)))
         compressed_vocab = bytearray()
         compressed_index = bytearray()
-        VOCAB_QUANTUM_SIZE = 256
         for ix, (w, _) in enumerate(vocab_list):
-            if (ix % VOCAB_QUANTUM_SIZE) == 0 and ix:
+            if (ix % self.VOCAB_QUANTUM_SIZE) == 0 and ix:
                 compressed_index.extend(UINT32.pack(len(compressed_vocab)))
             compressed_vocab.extend(w + b"\x00")
         parts = [
@@ -910,7 +931,8 @@ class NgramStorage:
         ]
         self.compressed_vocab = b"".join(parts)
         print(
-            "Compressed vocabulary including index is {0:,} bytes, {1:,} uncompressed, {2:,} index"
+            "Compressed vocabulary including index is {0:,} bytes, "
+            "{1:,} uncompressed, {2:,} index"
             .format(len(self.compressed_vocab), len(compressed_vocab), len(compressed_index))
         )
         vocab_list = None
@@ -1406,6 +1428,10 @@ class NgramStorage:
 
         # Instantiate the partitioned list for trigrams
         self._trigram_pl = PartitionedMonotonicList(self._trigrams)
+
+        # Load the vocabulary buffer
+        num_compressed_index = UINT32.unpack_from(self._vocab[0:4], 0)[0]
+        self._compressed_vocab = gzip.decompress(self._vocab[4 + 4 * num_compressed_index:])
 
         # Load the freqs rank list into memory
         self.freqs = []
