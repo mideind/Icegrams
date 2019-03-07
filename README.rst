@@ -15,17 +15,22 @@ three consecutive words or tokens that appear in real-world text.)
 
 The almost 34 million trigrams are heavily compressed using radix tries and
 `quasi-succinct indexes <https://arxiv.org/abs/1206.4300>`_ employing
-Elias-Fano encoding. This enables the trigrams to be mapped into memory
-for very fast queries (typically ~40 microseconds per lookup). The library
-is implemented in Python and C/C++, glued together via
+Elias-Fano encoding. This enables the compressed trigram file to be mapped
+directly into memory, with no *ex ante* decompression, for fast queries
+(typically ~40 microseconds per lookup).
+
+The Icegrams library is implemented in Python and C/C++, glued together via
 `CFFI <https://cffi.readthedocs.io/en/latest/>`_.
 
 The trigram storage approach is based on a
-`2017 paper by Pibiri and Venturini <http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf>`_.
+`2017 paper by Pibiri and Venturini <http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf>`_,
+also referring to
+`Ottaviano and Venturini (2014) <http://www.di.unipi.it/~ottavian/files/elias_fano_sigir14.pdf>`_
+regarding partitioned Elias-Fano indexes.
 
 You can use Icegrams to obtain probabilities (relative frequencies) of
-over a million different unigrams (single words or tokens), or of
-bigrams (pairs of two words or tokens), or of trigrams. You can also
+over a million different **unigrams** (single words or tokens), or of
+**bigrams** (pairs of two words or tokens), or of **trigrams**. You can also
 ask it to return the N most likely successors to any unigram or bigram.
 
 Icegrams is useful for instance in spelling correction, predictive typing,
@@ -43,31 +48,65 @@ Example
 >>> ng = Ngrams()
 >>> ng.freq("Ísland")
 42019
->>>> ng.prob("Ísland")
+>>> ng.prob("Ísland")
 0.0003979926900206475
->>>> ng.logprob("Ísland")
+>>> ng.logprob("Ísland")
 -7.8290769196308005
->>>>
 >>> ng.freq("Katrín", "Jakobsdóttir")
 3518
->>>> ng.prob("Katrín", "Jakobsdóttir")
+>>> ng.prob("Katrín", "Jakobsdóttir")
 0.23298013245033142
->>>> ng.prob("Katrín", "Júlíusdóttir")
+>>> ng.prob("Katrín", "Júlíusdóttir")
 0.013642384105960274
 >>> ng.freq("velta", "fyrirtækisins", "er")
 5
->>>> ng.prob("velta", "fyrirtækisins", "er")
+>>> ng.prob("velta", "fyrirtækisins", "er")
 0.2272727272727272
->>>> ng.prob("velta", "fyrirtækisins", "var")
+>>> ng.prob("velta", "fyrirtækisins", "var")
 0.04545454545454544
->>>> ng.freq("xxx", "yyy", "zzz")
+>>> ng.freq("xxx", "yyy", "zzz")
 1
+
+*****
+Notes
+*****
+
+Icegrams is built with a sliding window over the source text. This means that
+a sentence such as ``"Maðurinn borðaði ísinn."`` results in the following
+trigrams being added to the database::
+
+   ("", "", "Maðurinn")
+   ("", "Maðurinn", "borðaði")
+   ("Maðurinn", "borðaði", "ísinn")
+   ("borðaði", "ísinn", ".")
+   ("ísinn", ".", "")
+   (".", "", "")
+
+The same sliding window strategy is applied for bigrams, so the following
+bigrams would be recorded for the same sentence::
+
+   ("", "Maðurinn")
+   ("Maðurinn", "borðaði")
+   ("borðaði", "ísinn")
+   ("ísinn", ".")
+   (".", "")
+
+This means that you can obtain the N unigrams that most often start
+a sentence by asking for ``ng.succ(N, "")``.
+
+And, of course, four unigrams are also added, one for each token in the
+sentence.
+
+The tokenization of the source text into unigrams is done with the
+`Tokenizer package <https://pypi.org/project/tokenizer>`_ and
+uses the rules documented there.
 
 *************
 Prerequisites
 *************
 
-This package runs on CPython 3.4 or newer, and on PyPy 3.5 or newer.
+This package runs on CPython 3.4 or newer, and on PyPy 3.5 or newer. It
+has been tested on Linux (gcc), MacOS (clang) and Windows (msvc).
 
 If a binary wheel package isn't available on `PyPi <https://pypi.org>`_
 for your system, you may need to have the ``python3-dev`` and/or potentially
