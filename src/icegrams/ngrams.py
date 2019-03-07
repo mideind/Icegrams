@@ -21,6 +21,10 @@
     See also an updated (2018) version of the paper at:
     https://arxiv.org/pdf/1806.09447.pdf
 
+    We use partitioned Elias-Fano indexes as described in
+    Ottaviano and Venturini (2014),
+    http://www.di.unipi.it/~ottavian/files/elias_fano_sigir14.pdf
+
     In summary, the scheme is broadly as follows:
 
     1) All distinct unigrams (tokens) are stored in a compressed
@@ -88,6 +92,7 @@ import struct
 import math
 import io
 import mmap
+import gzip
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
@@ -98,10 +103,10 @@ else:
     from trie import Trie, HuffmanCodec
 
 
-TSV_FILENAME = "trigrams.tsv"
-# TSV_FILENAME = "trigrams-subset.tsv"
-BINARY_FILENAME = "trigrams.bin"
-# BINARY_FILENAME = "trigrams-subset.bin"
+# TSV_FILENAME = "trigrams.tsv"
+TSV_FILENAME = "trigrams-subset.tsv"
+# BINARY_FILENAME = "trigrams.bin"
+BINARY_FILENAME = "trigrams-subset.bin"
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
 UINT8 = struct.Struct("<B")
@@ -629,6 +634,7 @@ class NgramStorage:
         # Level 0 of the trigram tree
         self.level0 = None
         self.vocab_size = 0
+        self.compressed_vocab = None
         # Memory mapped binary buffer
         self._b = None
         self._mmap_buffer = None
@@ -888,30 +894,24 @@ class NgramStorage:
                 assert trie_ix == unigram_id
                 ids[w] = trie_ix
 
-        print("Starting creation of code book for {0:,}-word vocabulary".format(len(vocab_list)))
-        # Create a code book for the letters of the alphabet
-        letter_count = Counter()
-        for (w, _) in vocab_list:
-            letter_count.update(w)
-
-        codec = HuffmanCodec(letter_count)
-
-        compressed_vocab = BitArray()
-        max_num_bits = 0
-        codebook = codec.tree
-        num_plain_bytes = 0
-        for (w, _) in vocab_list:
-            num_bits = sum(codebook[c][1] for c in w)
-            assert num_bits < 1 << 9
-            if num_bits > max_num_bits:
-                max_num_bits = num_bits
-            compressed_vocab.append(num_bits, 9)
-            for c in w:
-                compressed_vocab.append(*codebook[c])
-            num_plain_bytes += len(w) + 1
+        # Compress the vocabulary array using gzip
+        print("Starting compression of {0:,}-word vocabulary".format(len(vocab_list)))
+        compressed_vocab = bytearray()
+        compressed_index = bytearray()
+        VOCAB_QUANTUM_SIZE = 256
+        for ix, (w, _) in enumerate(vocab_list):
+            if (ix % VOCAB_QUANTUM_SIZE) == 0 and ix:
+                compressed_index.extend(UINT32.pack(len(compressed_vocab)))
+            compressed_vocab.extend(w + b"\x00")
+        parts = [
+            UINT32.pack(len(compressed_index) // 4),
+            compressed_index,
+            gzip.compress(compressed_vocab)
+        ]
+        self.compressed_vocab = b"".join(parts)
         print(
-            "Compressed vocab is {0:,} bytes, max_num_bits is {1}, plain bytes are {2:,}"
-            .format(len(compressed_vocab), max_num_bits, num_plain_bytes)
+            "Compressed vocabulary including index is {0:,} bytes, {1:,} uncompressed, {2:,} index"
+            .format(len(self.compressed_vocab), len(compressed_vocab), len(compressed_index))
         )
         vocab_list = None
 
@@ -1265,6 +1265,7 @@ class NgramStorage:
         "_unigram_freqs",
         "_bigram_freqs",
         "_trigram_freqs",
+        "_vocab"
     )
     _NUM_HEADERS = len(_HEADERS)
 
@@ -1292,6 +1293,12 @@ class NgramStorage:
             f.write(UINT32.pack(0))
 
         def write_padded(b, n):
+            """ Write bytes to the file f with padding
+                so that they align to n """
+            # Align to 4 bytes first
+            pos = f.tell() & 3
+            if pos:
+                f.write(b"\x00" * (4 - pos))
             assert len(b) <= n
             f.write(b + b"\x00" * (n - len(b)))
 
@@ -1321,12 +1328,12 @@ class NgramStorage:
                 f.write(UINT32.pack(k))
         print("Frequencies take a total of {0:,} bytes.".format(f.tell() - pos))
 
-        # Write unigram vocabulary
-        write_padded(b"[vocabulary]", 16)
+        # Write unigram trie
+        write_padded(b"[trie]", 16)
         fixup(h.trie_offset)
         pos = f.tell()
         self.trie.write(f)
-        print("Vocabulary trie takes a total of {0:,} bytes.".format(f.tell() - pos))
+        print("Unigram trie takes a total of {0:,} bytes.".format(f.tell() - pos))
 
         # Write the ngram data
         write_padded(b"[ngrams]", 16)
@@ -1352,6 +1359,11 @@ class NgramStorage:
         f.seek(0, io.SEEK_END)
 
         print("Bigram and trigram levels take a total of {0:,} bytes.".format(f.tell() - pos))
+
+        # Write vocabulary
+        write_padded(b"[vocab]", 16)
+        fixup(h.vocab_offset)
+        f.write(self.compressed_vocab)
 
         # Write the entire byte buffer stream to the compressed file
         with open(fname, "wb") as stream:
