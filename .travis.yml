@@ -1,12 +1,10 @@
 language: python
 
-dist: xenial
-
 python:
   - "3.4"
   - "3.5"
   - "3.6"
-  - "pypy35"
+  - "pypy3.5"
 
 install:
   # Python 3.4 seems to require pip and setuptools
