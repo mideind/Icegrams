@@ -40,9 +40,9 @@ statistics and modelling tasks.
 Icegrams is built on the database of `Greynir.is <https://greynir.is>`_,
 comprising over 6 million sentences parsed from Icelandic news articles.
 
-*******
-Example
-*******
+********
+Examples
+********
 
 >>> from icegrams import Ngrams
 >>> ng = Ngrams()

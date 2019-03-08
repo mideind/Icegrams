@@ -186,8 +186,8 @@ class Ngrams:
             successors to the words given, in descending order of
             log probability. The list consists of tuples of
             (word, log probability). """
-        if not isinstance(n, int):
-            raise TypeError("Expected integer for parameter n")
+        if not isinstance(n, int) or n < 1:
+            raise TypeError("Expected positive integer for parameter n")
         if not args:
             raise ValueError("Must provide at least one string argument")
         return self.ngrams.succ(n, *args)

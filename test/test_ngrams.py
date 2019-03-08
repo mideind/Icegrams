@@ -100,6 +100,20 @@ def test_trigrams():
     assert n.freq("xxx", "yyy", "zzz") == 1
     assert n.freq("Hann", "var", "zzz") == 1
 
+    assert n.freq("") > 11700000
+    assert n.freq("", "Hér") > 20200
+    assert n.freq("Ísland") > 40000
+    assert n.prob("Ísland") > 0.00039
+    assert n.logprob("Ísland") > -7.830
+    assert n.freq("Katrín", "Jakobsdóttir") > 3500
+    assert n.freq("velta", "fyrirtækisins", "er") >= 5
+
+    assert "Jakobsdóttir" in set(u for u, lp in n.succ(10, "Katrín"))
+    assert "Gunnarsdóttir" in set(u for u, lp in n.succ(10, "Þorgerður", "Katrín"))
+    assert "Þorsteinsson" in set(u for u, lp in n.succ(20, "Vilhjálmur"))
+    assert "atkvæði" in set(u for u, lp in n.succ(20, "greiddi", "því"))
+    assert "að" in set(u for u, lp in n.succ(20, "hálfur", "millimetri"))
+
 
 def test_word_ids():
     n = Ngrams().ngrams
