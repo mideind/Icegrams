@@ -99,3 +99,9 @@ def test_trigrams():
     assert n.freq('hálfur', 'millimetri', 'að') == 2
     assert n.freq("xxx", "yyy", "zzz") == 1
     assert n.freq("Hann", "var", "zzz") == 1
+
+
+def test_word_ids():
+    n = Ngrams().ngrams
+    for i in range(0, 2048):
+        assert n.word_to_id(n.id_to_word(i)) == i

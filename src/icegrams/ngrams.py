@@ -623,7 +623,14 @@ class NgramStorage:
     # every FREQ_QUANTUM_SIZE frequency values
     FREQ_QUANTUM_SIZE = 1024
     # Index positions for vocabulary
-    VOCAB_QUANTUM_SIZE = 256
+    # A quantum size of 64 means that we spend 0.5 bits per
+    # unigram on the index
+    VOCAB_QUANTUM_SIZE = 64
+    # As an optimization, we store a separate index entry
+    # for each unigram with id less than VOCAB_INDEX_CUTOFF.
+    # Since the unigrams are ordered by frequency of occurrence,
+    # this makes lookup faster for the most-used words.
+    VOCAB_INDEX_CUTOFF = 1024
 
     VERSION = b'Reynir 001.00.00'
     assert len(VERSION) == 16
@@ -665,10 +672,19 @@ class NgramStorage:
 
     def id_to_word(self, n):
         """ Convert a vocabulary index back to the original unigram text """
-        q, r = divmod(n, self.VOCAB_QUANTUM_SIZE)
+        if n < self.VOCAB_INDEX_CUTOFF:
+            # For low ids, we have an index entry for every id
+            q, r = n, 0
+            # The word ends just before the next one begins
+            end = UINT32.unpack_from(self._vocab, 4 * (q + 1))[0] - 1
+        else:
+            # For higher ids, we have index entries every VOCAB_QUANTUM_SIZE words
+            q, r = divmod(n - self.VOCAB_INDEX_CUTOFF, self.VOCAB_QUANTUM_SIZE)
+            q += self.VOCAB_INDEX_CUTOFF
+            end = None
         # Find the start of our quantum
         p = 0 if q == 0 else UINT32.unpack_from(self._vocab, 4 * q)[0]
-        # Skip past words in this quantum
+        # Skip past words in this quantum, if required
         while r:
             while self._compressed_vocab[p]:
                 p += 1
@@ -676,10 +692,13 @@ class NgramStorage:
             r -= 1
         # Accumulate our word
         start = p
-        while self._compressed_vocab[p]:
-            p += 1
+        if end is None:
+            # We don't know the end of the word; find it
+            while self._compressed_vocab[p]:
+                p += 1
+            end = p
         # Convert it back to a string and return it
-        return to_str(self._compressed_vocab[start:p])
+        return to_str(self._compressed_vocab[start:end])
 
     def indices(self, *args):
         """ Convert word strings to vocabulary indices, or None
@@ -920,8 +939,12 @@ class NgramStorage:
         print("Starting compression of {0:,}-word vocabulary".format(len(vocab_list)))
         compressed_vocab = bytearray()
         compressed_index = bytearray()
+        # The index consists of w1...w1023 followed by w1024,w1088,...
         for ix, (w, _) in enumerate(vocab_list):
-            if (ix % self.VOCAB_QUANTUM_SIZE) == 0 and ix:
+            if ix and (
+                ix % self.VOCAB_QUANTUM_SIZE == 0
+                or ix < self.VOCAB_INDEX_CUTOFF
+            ):
                 compressed_index.extend(UINT32.pack(len(compressed_vocab)))
             compressed_vocab.extend(w + b"\x00")
         parts = [
