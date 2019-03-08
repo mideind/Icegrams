@@ -1,6 +1,6 @@
 """
 
-    Reynir: Natural language processing for Icelandic
+    Icegrams: A trigrams library for Icelandic
 
     CFFI builder for _trie module
 
@@ -39,6 +39,7 @@ _PATH = os.path.dirname(__file__) or "."
 WINDOWS = platform.system() == "Windows"
 
 # What follows is the actual Python-wrapped C interface to trie.*.so
+# It must be kept in sync with trie.h
 
 declarations = """
 

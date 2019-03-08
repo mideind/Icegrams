@@ -1,5 +1,7 @@
 """
 
+    Icegrams: A trigrams library for Icelandic
+
     ngrams.py
 
     Copyright (C) 2019 Miðeind ehf.
@@ -86,7 +88,7 @@
 """
 
 import time
-from collections import defaultdict, Counter
+from collections import defaultdict
 from bisect import bisect_left
 import struct
 import math
@@ -103,10 +105,10 @@ else:
     from trie import Trie
 
 
-# TSV_FILENAME = "trigrams.tsv"
-TSV_FILENAME = "trigrams-subset.tsv"
-# BINARY_FILENAME = "trigrams.bin"
-BINARY_FILENAME = "trigrams-subset.bin"
+TSV_FILENAME = "trigrams.tsv"
+# TSV_FILENAME = "trigrams-subset.tsv"
+BINARY_FILENAME = "trigrams.bin"
+# BINARY_FILENAME = "trigrams-subset.bin"
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
 UINT8 = struct.Struct("<B")
@@ -406,15 +408,8 @@ class MonotonicList(BaseList):
             buf.append(low_buf)
 
         # Construct the final compressed buffer
-        # Add an 8-byte header in front containing n and the number of low bits,
-        # which is all we need for decompression
-        if high_bits > 0:
-            try:
-                assert len(hbuf_index) == ((self.n - 1) // self.QUANTUM_SIZE) * 4
-            except AssertionError:
-                print("len(hbuf_index) is {0}, self.n is {1}, QUANTUM_SIZE is {2}"
-                    .format(len(hbuf_index), self.n, self.QUANTUM_SIZE))
-                raise
+        # Add an 8-byte header in front containing n and the number
+        # of low and high bits, which is all we need for decompression
         parts = [
             UINT32.pack(self.n),
             UINT16.pack(low_bits), UINT16.pack(high_bits),
@@ -956,7 +951,9 @@ class NgramStorage:
         print(
             "Compressed vocabulary including index is {0:,} bytes, "
             "{1:,} uncompressed, {2:,} index"
-            .format(len(self.compressed_vocab), len(compressed_vocab), len(compressed_index))
+            .format(len(self.compressed_vocab), len(compressed_vocab),
+                len(compressed_index)
+            )
         )
         vocab_list = None
 

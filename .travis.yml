@@ -1,0 +1,26 @@
+language: python
+
+dist: xenial
+
+python:
+  - "3.4"
+  - "3.5"
+  - "3.6"
+  - "pypy35"
+
+install:
+  # Python 3.4 seems to require pip and setuptools
+  # upgrades to be able to correctly install reynir and access
+  # embedded resources
+  - python -m pip install --upgrade pip
+  - python -m pip install --upgrade setuptools
+  - cd ..
+  - git clone https://github.com/vthorsteinsson/Icegrams
+  - cd Icegrams
+  - python setup.py develop
+
+script:
+  - python -m pytest
+
+notifications:
+  slack: greynir:38FfPr1S8oZRNFMmt47mzT3z

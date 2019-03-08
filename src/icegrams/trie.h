@@ -1,8 +1,8 @@
 /*
 
-   Reynir: Natural language processing for Icelandic
+   Icegrams: A trigrams library for Icelandic
 
-   C++ trie lookup module
+   trie.h - C++ trie lookup module
 
    Copyright (C) 2019 Miðeind ehf.
    Original author: Vilhjálmur Þorsteinsson
@@ -21,7 +21,8 @@
 
 
    This module implements lookup of words in a compressed, memory-mapped
-   trie structure.
+   trie structure, as well as utility functions for working with
+   Elias-Fano compressed lists and bit arrays.
 
 */
 
@@ -50,21 +51,35 @@ extern "C" UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
 extern "C" UINT bitselect(const BYTE* pb, UINT n);
 extern "C" UINT retrieve(const BYTE* pb, UINT nStart, UINT n);
 
+// Look up an n-gram frequency from packed list of bucket indices
 extern "C" UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
 
+// Look up items in a monotonic list of integers coded with Elias-Fano
 extern "C" UINT64 lookupMonotonic(const BYTE* pb,
    UINT nQuantumSize, UINT nIndex);
+
+// Look up items in a monotonic list of integers coded with
+// partitioned Elias-Fano
 extern "C" UINT64 lookupPartition(const BYTE* pb,
    UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
 
+// Binary search over a monotonic Elias-Fano list of integers
 extern "C" UINT searchMonotonic(const BYTE* pb,
    UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);
+
+// Binary search over a monotonic Elias-Fano list of integers
+// encoded with a prefix sum in position [nP1-1]
 extern "C" UINT searchMonotonicPrefix(const BYTE* pb,
    UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);
 
+// Binary search over a partitioned monotonic
+// Elias-Fano list of integers
 extern "C" UINT searchPartition(const BYTE* pb,
    UINT nOuterQuantum, UINT nInnerQuantum,
    UINT nP1, UINT nP2, UINT64 n);
+
+// Binary search over a partitioned monotonic Elias-Fano
+// list of integers encoded with a prefix sum in position [nP1-1]
 extern "C" UINT searchPartitionPrefix(const BYTE* pb,
    UINT nOuterQuantum, UINT nInnerQuantum,
    UINT nP1, UINT nP2, UINT64 n);

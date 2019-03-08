@@ -1,8 +1,8 @@
 /*
 
-   Icegrams
+   Icegrams: A trigrams library for Icelandic
 
-   C++ trie lookup module
+   trie.cpp - C++ trie lookup module
 
    Copyright (C) 2019 Miðeind ehf.
    Original author: Vilhjálmur Þorsteinsson
@@ -21,7 +21,9 @@
 
 
    This module implements lookup of words in a trie structure
-   within a compressed, memory-mapped byte buffer.
+   within a compressed, memory-mapped byte buffer. It also includes
+   a number of utility functions for working with compressed
+   Elias-Fano sequences and arrays of bits.
 
 */
 
@@ -59,6 +61,7 @@ private:
 
    const BYTE* m_pbMap;
    const Header* m_pHeader;
+   UINT m_nTrieRoot;
    UINT m_nTrieRootHeader;
    UINT m_nWordLen;
    const BYTE* m_pbWord;
@@ -204,7 +207,8 @@ UINT Trie::lookup(UINT nNodeOffset, UINT nHdr, UINT nFragmentIndex) const
 
 Trie::Trie(const BYTE* pbMap)
    : m_pbMap(pbMap), m_pHeader((const Header*)pbMap),
-      m_nTrieRootHeader(this->uintAt(m_pHeader->nTrieOffset)),
+      m_nTrieRoot(m_pHeader->nTrieOffset),
+      m_nTrieRootHeader(this->uintAt(m_nTrieRoot)),
       m_nWordLen(0),
       m_pbWord(NULL)
 {
@@ -224,7 +228,7 @@ UINT Trie::mapping(const BYTE* pbWord)
    }
    this->m_pbWord = pbWord;
    this->m_nWordLen = (UINT)strlen((const char*)pbWord);
-   return this->lookup(this->m_pHeader->nTrieOffset, this->m_nTrieRootHeader, 0);
+   return this->lookup(this->m_nTrieRoot, this->m_nTrieRootHeader, 0);
 }
 
 UINT mapping(const BYTE* pbMap, const BYTE* pbWord)

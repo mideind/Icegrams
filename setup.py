@@ -4,7 +4,7 @@
 """
     Icegrams: A trigrams library for Icelandic
 
-    Setup.py
+    setup.py
 
     Copyright (C) 2019 Miðeind ehf.
     Author: Vilhjálmur Þorsteinsson
@@ -64,7 +64,7 @@ setup(
     name="icegrams",
     # Remember to modify version numbers in
     # src/icegrams/__init__.py as well
-    version="0.0.1",
+    version="0.1.0",
     license="GNU GPLv3",
     description="Trigram statistics for Icelandic",
     long_description="{0}\n{1}".format(
@@ -82,7 +82,7 @@ setup(
     zip_safe=True,
     classifiers=[
         # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
-        "Development Status :: 5 - Production/Stable",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
