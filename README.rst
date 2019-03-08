@@ -2,8 +2,8 @@
 Icegrams: A fast, compact trigram library for Icelandic
 =======================================================
 
-.. image:: https://travis-ci.org/vthorsteinsson/Icegrams.svg?branch=master
-    :target: https://travis-ci.org/vthorsteinsson/Icegrams
+.. image:: https://travis-ci.com/vthorsteinsson/Icegrams.svg?branch=master
+    :target: https://travis-ci.com/vthorsteinsson/Icegrams
 
 ********
 Overview
