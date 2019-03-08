@@ -93,22 +93,28 @@ from bisect import bisect_left
 import struct
 import math
 import io
+import os
 import mmap
 import gzip
+
+
+_PATH = os.path.dirname(__file__) or "."
+TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
 if __package__:
     from ._trie import lib as trie_cffi, ffi
+    # Make sure that the ord.compressed filename is
+    # unpacked and ready for use
+    import pkg_resources
+    # Note: the resource path below should NOT use os.path.join()
+    BINARY_FILENAME = pkg_resources.resource_filename(__name__, "resources/trigrams.bin")
 else:
     from _trie import lib as trie_cffi, ffi
     from trie import Trie
+    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
 
-
-TSV_FILENAME = "trigrams.tsv"
-# TSV_FILENAME = "trigrams-subset.tsv"
-BINARY_FILENAME = "trigrams.bin"
-# BINARY_FILENAME = "trigrams-subset.bin"
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
 UINT8 = struct.Struct("<B")

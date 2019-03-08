@@ -3,11 +3,11 @@ import sys
 import time
 from random import randrange
 import icegrams
+import os
 
 n = icegrams.Ngrams()
 
-# FILENAME="3-grams.sorted"
-FILENAME="trigrams-subset.tsv"
+FILENAME=os.path.join("src", "icegrams", "resources", "trigrams-subset.tsv")
 
 d = []
 with open(FILENAME, encoding="utf-8") as f:

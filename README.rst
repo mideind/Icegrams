@@ -25,8 +25,8 @@ The Icegrams library is implemented in Python and C/C++, glued together via
 The trigram storage approach is based on a
 `2017 paper by Pibiri and Venturini <http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf>`_,
 also referring to
-`Ottaviano and Venturini (2014) <http://www.di.unipi.it/~ottavian/files/elias_fano_sigir14.pdf>`_
-regarding partitioned Elias-Fano indexes.
+`Ottaviano and Venturini <http://www.di.unipi.it/~ottavian/files/elias_fano_sigir14.pdf>`_
+(2014) regarding partitioned Elias-Fano indexes.
 
 You can use Icegrams to obtain probabilities (relative frequencies) of
 over a million different **unigrams** (single words or tokens), or of
