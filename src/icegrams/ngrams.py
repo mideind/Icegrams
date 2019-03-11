@@ -1495,6 +1495,13 @@ if __name__ == "__main__":
     print("Welcome to the Icegrams trigram compressor\n")
 
     ngrams = NgramStorage()
-    add_all_bigrams = TSV_FILENAME in ("trigrams-subset.tsv")
+    # The default trigrams.tsv data file contains a comprehensive
+    # set of trigrams, generated using a sliding window.
+    # In such a file, the presence of a trigram (w0, w1, w2)
+    # guarantees that (w0, w1) and (w1, w2) are both present as
+    # bigrams as well. If this is not the case in your data
+    # file, and you want (w1, w2) to be explicitly added
+    # when (w0, w1, w2) is seen, set add_all_bigrams to True.
+    add_all_bigrams = TSV_FILENAME != "trigrams.tsv"
     ngrams.compress(TSV_FILENAME, BINARY_FILENAME, add_all_bigrams=add_all_bigrams)
     ngrams.close()

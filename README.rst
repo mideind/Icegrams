@@ -91,7 +91,7 @@ bigrams would be recorded for the same sentence::
    ("ísinn", ".")
    (".", "")
 
-This means that you can obtain the N unigrams that most often start
+You can thus obtain the N unigrams that most often start
 a sentence by asking for ``ng.succ(N, "")``.
 
 And, of course, four unigrams are also added, one for each token in the
@@ -150,5 +150,100 @@ virtualenv), then run::
 Reference
 *********
 
-TBD
+Initializing Icegrams
+---------------------
+
+After installing the ``icegrams`` package,
+use the following code to import it and initialize an instance of
+the :py:class:`Ngrams` class::
+
+    from icegrams import Ngrams
+    ng = Ngrams()
+
+Now you can use the ``ng`` instance to query for unigram, bigram
+and trigram frequencies and probabilities.
+
+The Ngrams class
+----------------
+
+.. py:class:: Ngrams
+
+    .. py:method:: __init__(self)
+
+        Initializes the :py:class:`Ngrams` instance.
+
+    .. py:method:: freq(self, *args) -> int
+
+        Returns the frequency of a unigram, bigram or trigram.
+
+        :param str[] *args: A parameter sequence of consecutive unigrams
+          to query the frequency for.
+        :return: An integer with the adjusted frequency of the unigram,
+          bigram or trigram. The adjusted frequency is the actual
+          frequency plus 1. The method thus never returns 0.
+
+        To query for the frequency of a unigram in the text, call
+        ``ng.freq("unigram1")``. This returns the number of times that
+        the unigram appears in the database, plus 1. The unigram is
+        queried as-is, i.e. with no string stripping or lowercasing.
+
+        To query for the frequency of a bigram in the text, call
+        ``ng.freq("unigram1", "unigram2")``.
+
+        To query for the frequency of a trigram in the text, call
+        ``ng.freq("unigram1", "unigram2", "unigram3")``.
+
+        If you pass more than 3 arguments to ``ng.freq()``, only the
+        last 3 are significant, and the query will be treated
+        as a trigram query.
+
+    .. py:method:: prob(self, *args) -> float
+
+        Returns the probability of a unigram, bigram or trigram.
+
+        :param str[] *args: A parameter sequence of consecutive unigrams
+          to query the probability for.
+        :return: A float with the probability of the given unigram,
+          bigram or trigram.
+
+        * The probability of a *unigram* is
+          the frequency of the unigram divided by the sum of the
+          frequencies of all unigrams in the database.
+
+        * The probability of a *bigram* ``(u1, u2)`` is the frequency
+          of the bigram divided by the frequency of the unigram ``u1``,
+          i.e. how likely ``u2`` is to succeed ``u1``.
+
+        * The probability of a trigram ``(u1, u2, u3)`` is the frequency
+          of the trigram divided by the frequency of the bigram ``(u1, u2)``,
+          i.e. how likely ``u3`` is to succeed ``u1 u2``.
+
+        If you pass more than 3 arguments to ``ng.prob()``, only the
+        last 3 are significant, and the query will be treated
+        as a trigram probability query.
+
+    .. py:method:: logprob(self, *args) -> float
+
+        Returns the log probability of a unigram, bigram or trigram.
+
+        :param str[] *args: A parameter sequence of consecutive unigrams
+          to query the log probability for.
+        :return: A float with the natural logarithm (base *e*) of the
+          probability of the given unigram, bigram or trigram.
+
+        * The probability of a *unigram* is
+          the frequency of the unigram divided by the sum of the
+          frequencies of all unigrams in the database.
+
+        * The probability of a *bigram* ``(u1, u2)`` is the frequency
+          of the bigram divided by the frequency of the unigram ``u1``,
+          i.e. how likely ``u2`` is to succeed ``u1``.
+
+        * The probability of a trigram ``(u1, u2, u3)`` is the frequency
+          of the trigram divided by the frequency of the bigram ``(u1, u2)``,
+          i.e. how likely ``u3`` is to succeed ``u1 u2``.
+
+        If you pass more than 3 arguments to ``ng.logprob()``, only the
+        last 3 are significant, and the query will be treated
+        as a trigram probability query.
 

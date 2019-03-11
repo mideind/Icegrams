@@ -1,5 +1,7 @@
 """
 
+    Icegrams: A trigrams library for Icelandic
+
     trie.py
 
     Copyright (C) 2019 Miðeind ehf.

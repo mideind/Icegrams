@@ -4,4 +4,4 @@ exclude src/icegrams/*.o
 exclude src/icegrams/*.so
 exclude src/icegrams/*.pyd
 prune src/icegrams/resources
-# include src/icegrams/resources/trigrams.bin
+include src/icegrams/resources/trigrams.bin
