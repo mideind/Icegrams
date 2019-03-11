@@ -64,7 +64,7 @@ setup(
     name="icegrams",
     # Remember to modify version numbers in
     # src/icegrams/__init__.py as well
-    version="0.1.0",
+    version="0.2.0",
     license="GNU GPLv3",
     description="Trigram statistics for Icelandic",
     long_description="{0}\n{1}".format(

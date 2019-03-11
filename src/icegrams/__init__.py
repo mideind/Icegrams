@@ -31,4 +31,4 @@ from .ngrams import Ngrams
 
 __author__ = "Miðeind ehf."
 __copyright__ = "(C) 2019 Miðeind ehf."
-__version__ = "0.1.0"
+__version__ = "0.2.0"
