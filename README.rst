@@ -264,7 +264,7 @@ This package runs on CPython 3.4 or newer, and on PyPy 3.5 or newer. It
 has been tested on Linux (gcc on x86-64 and ARMhf), MacOS (clang) and
 Windows (MSVC).
 
-If a binary wheel package isn't available on `PyPi <https://pypi.org>`_
+If a binary wheel package isn't available on `PyPI <https://pypi.org>`_
 for your system, you may need to have the ``python3-dev`` and/or potentially
 ``python3.6-dev`` packages (or their Windows equivalents) installed on your
 system to set up Icegrams successfully. This is because a source distribution
