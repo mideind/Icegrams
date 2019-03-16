@@ -43,6 +43,7 @@ typedef unsigned int UINT;
 typedef uint8_t BYTE;
 typedef uint32_t UINT32;
 typedef uint64_t UINT64;
+typedef void VOID;
 
 // Map a word to an offset within the memory mapped buffer
 extern "C" UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
@@ -58,10 +59,18 @@ extern "C" UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex);
 extern "C" UINT64 lookupMonotonic(const BYTE* pb,
    UINT nQuantumSize, UINT nIndex);
 
+extern "C" VOID lookupPairMonotonic(const BYTE* pb,
+   UINT nQuantumSize, UINT nIndex,
+   UINT64* pn1, UINT64* pn2);
+
 // Look up items in a monotonic list of integers coded with
 // partitioned Elias-Fano
 extern "C" UINT64 lookupPartition(const BYTE* pb,
    UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+
+extern "C" VOID lookupPairPartition(const BYTE* pb,
+   UINT nQuantumSize, UINT nInnerQuantum, UINT nIndex,
+   UINT64* pn1, UINT64* pn2);
 
 // Binary search over a monotonic Elias-Fano list of integers
 extern "C" UINT searchMonotonic(const BYTE* pb,

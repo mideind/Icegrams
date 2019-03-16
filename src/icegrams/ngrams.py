@@ -455,13 +455,22 @@ class MonotonicList(BaseList):
             raise ValueError("Lookup not allowed from uncompressed list")
         return trie_cffi.lookupMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix)
 
+    def lookup_pair(self, ix):
+        """ Return the pair of values at [ix] and [ix+1] """
+        p1 = ffi.new("uint64_t*")
+        p2 = ffi.new("uint64_t*")
+        trie_cffi.lookupPairMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix, p1, p2)
+        return p1[0], p2[0]
+
     def search(self, p1, p2, i):
+        """ Look for i in the range [p1, p2> within the list """
         if self.ffi_b is None:
             raise ValueError("Search not allowed in uncompressed list")
         r = trie_cffi.searchMonotonic(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
         return None if r == 0xFFFFFFFF else r
 
     def search_prefix(self, p1, p2, i):
+        """ Look for i in the range [p1, p2> within the list """
         if self.ffi_b is None:
             raise ValueError("Search not allowed in uncompressed list")
         r = trie_cffi.searchMonotonicPrefix(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
@@ -576,6 +585,15 @@ class PartitionedMonotonicList(BaseList):
         return trie_cffi.lookupPartition(
             self.ffi_b, self.QUANTUM_SIZE, MonotonicList.QUANTUM_SIZE, ix
         )
+
+    def lookup_pair(self, ix):
+        """ Return the pair of values at [ix] and [ix+1] """
+        p1 = ffi.new("uint64_t*")
+        p2 = ffi.new("uint64_t*")
+        trie_cffi.lookupPairPartition(
+            self.ffi_b, self.QUANTUM_SIZE, MonotonicList.QUANTUM_SIZE, ix, p1, p2
+        )
+        return p1[0], p2[0]
 
     def search(self, p1, p2, i):
         if self.ffi_b is None:

@@ -47,6 +47,7 @@ declarations = """
     typedef uint8_t BYTE;
     typedef uint32_t UINT32;
     typedef uint64_t UINT64;
+    typedef void VOID;
 
     UINT mapping(const BYTE* pbMap, const BYTE* pbWord);
     UINT bitselect(const BYTE* pb, UINT n);
@@ -54,10 +55,18 @@ declarations = """
 
     UINT lookupFrequency(const BYTE* pb,
         UINT nQuantumSize, UINT nIndex);
+
     UINT64 lookupMonotonic(const BYTE* pb,
         UINT nQuantumSize, UINT nIndex);
+    VOID lookupPairMonotonic(const BYTE* pb,
+        UINT nQuantumSize, UINT nIndex,
+        UINT64* pn1, UINT64* pn2);
+
     UINT64 lookupPartition(const BYTE* pb,
         UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex);
+    VOID lookupPairPartition(const BYTE* pb,
+        UINT nQuantumSize, UINT nInnerQuantum, UINT nIndex,
+        UINT64* pn1, UINT64* pn2);
 
     UINT searchMonotonic(const BYTE* pb,
         UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n);

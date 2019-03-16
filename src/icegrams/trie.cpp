@@ -332,7 +332,8 @@ static inline UINT bitcount32(UINT32 v)
    return (v * 0x01010101) >> 24;
 }
 
-UINT lookupFrequency(const BYTE* pb, UINT nQuantumSize, UINT nIndex) {
+UINT lookupFrequency(const BYTE* pb,
+   UINT nQuantumSize, UINT nIndex) {
    /* Look up the frequency rank at index nIndex from
       the memory area pointed to by pb */
 
@@ -399,7 +400,8 @@ struct MonoListHeader {
 
 #pragma pack(pop)
 
-UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
+UINT64 lookupMonotonic(const BYTE* pb,
+   UINT nQuantumSize, UINT nIndex)
 {
    /* Returns the integer at index ix within the sequence */
    // Extract information about the monotonic (Elias-Fano) list
@@ -496,7 +498,162 @@ UINT64 lookupMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nIndex)
    return (nHighPart << nLb) | nLowPart;
 }
 
-UINT searchMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n)
+VOID lookupPairMonotonic(const BYTE* pb,
+   UINT nQuantumSize, UINT nIndex,
+   UINT64* pn1, UINT64* pn2)
+{
+   if (!pn1 || !pn2)
+      return;
+   /* Returns the integer at index ix within the sequence */
+   // Extract information about the monotonic (Elias-Fano) list
+   // from its header
+   struct MonoListHeader* ph = (struct MonoListHeader*)pb;
+   // Number of items in the list
+   UINT n = (UINT)ph->n;
+   // Number of low and high bits
+   UINT nLb = (UINT)ph->nLb;
+   UINT nHb = (UINT)ph->nHb;
+   // High-bits buffer indices
+   UINT32* pnHbufIndex = &ph->anHbufIndex[0];
+   UINT nHbufSize = nHb ? ((n - 1) / nQuantumSize) * sizeof(pnHbufIndex[0]) : 0;
+   // Move the byte pointer past the header and the indices
+   pb += sizeof(MonoListHeader) + nHbufSize;
+   // Low bit mask
+   UINT nLowMask = (1 << nLb) - 1;
+   // Index of first low bit to read
+   UINT nLowBitIndex = nIndex * nLb;
+   // Calculate the starting byte index
+   UINT nBy = nLowBitIndex >> 3;
+   // Calculate the starting bit index within the byte
+   // (position 0 is the leftmost/least significant bit)
+   nLowBitIndex &= 0x07;
+   // If end > 8 we need to fetch more than one byte.
+   // This is either because we are using more than 8 lower bits,
+   // or because we are starting from a nonzero index within the byte,
+   // or both.
+   UINT nEnd = nLb + nLowBitIndex;
+   UINT64 nBits = 0;
+   UINT nBitCount = 0;
+   while (1) {
+      nBits |= ((UINT64)pb[nBy]) << nBitCount;
+      nBitCount += 8;
+      if (nBitCount >= nEnd)
+         break;
+      nBy += 1;
+   }
+   // Extract the low part of pn1 from the accumulated bits
+   nBits >>= nLowBitIndex;
+   UINT64 nLowPart1 = nBits & nLowMask;
+   // Continue to pn2
+   nBits >>= nLb;
+   nBitCount -= nLowBitIndex + nLb;
+   while (nBitCount < nLb) {
+      // We don't have enough bits for pn2; add them
+      nBits |= ((UINT64)pb[++nBy]) << nBitCount;
+      nBitCount += 8;
+   }
+   // Extract the low part of pn2 from the accumulated bits
+   UINT64 nLowPart2 = nBits & nLowMask;
+   if (!nHb) {
+      // No high bits: we're done
+      *pn1 = nLowPart1;
+      *pn2 = nLowPart2;
+      return;
+   }
+   UINT64 nHighPart1 = 0;
+   UINT64 nHighPart2 = 0;
+   // Now for the high part
+   // Find out where it starts
+   nBy = (n * nLb + 7) >> 3;
+   UINT nHpos = nIndex;
+   BYTE bMask = 0xFF;
+   if (nIndex >= nQuantumSize) {
+      // Find out which quantum we're looking for
+      UINT nQ = nIndex / nQuantumSize;
+      // At the quantum index point, we had written
+      // q*QUANTUM_SIZE 1-nBits to the high buffer and
+      // had advanced to byte hby, which means that we
+      // had written a total of hby * 8 nBits and therefore
+      // (hby * 8) - (q * QUANTUM_SIZE) 0-nBits
+      UINT nHbit = (UINT)pnHbufIndex[nQ-1];
+      nBy += nHbit >> 3;
+      bMask = 0xFF ^ ((1 << (nHbit & 0x07)) - 1);
+      nHpos -= nQ * nQuantumSize;
+      nHighPart1 = (nHbit & ~0x07) - nQ * nQuantumSize;
+   }
+   UINT nBcnt = (UINT)_BIT_COUNT[pb[nBy] & bMask];
+   while (1) {
+      // How many 1 bits do we have in the current byte
+      // of the high part?
+      if (nHpos < nBcnt)
+         // The bit we're looking for is somewhere in this byte
+         break;
+      // Increment the high part by the number of skipped zeroes
+      nHighPart1 += 8 - nBcnt;
+      // Skip this byte
+      nHpos -= nBcnt;
+      nBy += 1;
+      nBcnt = (UINT)_BIT_COUNT[pb[nBy]];
+      bMask = 0xFF;
+   }
+   // Continue from this point to retrieve pn2, from nHpos+1
+   nHighPart2 = nHighPart1;
+   UINT nBy2 = nBy;
+   UINT nHpos2 = nHpos + 1;
+   BYTE bMask2 = bMask;
+   while (1) {
+      // How many 1 bits do we have in the current byte
+      // of the high part?
+      if (nHpos2 < nBcnt)
+         // The bit we're looking for is somewhere in this byte
+         break;
+      // Increment the high part by the number of skipped zeroes
+      nHighPart2 += 8 - nBcnt;
+      // Skip this byte
+      nHpos2 -= nBcnt;
+      nBy2 += 1;
+      nBcnt = (UINT)_BIT_COUNT[pb[nBy2]];
+      bMask2 = 0xFF;
+   }
+   // Now we need to find the 1-bit for pn1
+   nBy = (UINT)(pb[nBy] & bMask);
+   while (1) {
+      if (nBy & 1) {
+         if (nHpos == 0)
+            // Our job is done
+            break;
+         // We are closer to the target
+         nHpos -= 1;
+      }
+      else
+         // Found a zero: increment high part
+         nHighPart1 += 1;
+      // Go look at the next bit
+      nBy >>= 1;
+   }
+   // Now we need to find the 1-bit for pn2
+   nBy = (UINT)(pb[nBy2] & bMask2);
+   while (1) {
+      if (nBy & 1) {
+         if (nHpos2 == 0)
+            // Our job is done
+            break;
+         // We are closer to the target
+         nHpos2 -= 1;
+      }
+      else
+         // Found a zero: increment high part
+         nHighPart2 += 1;
+      // Go look at the next bit
+      nBy >>= 1;
+   }
+   *pn1 = (nHighPart1 << nLb) | nLowPart1;
+   *pn2 = (nHighPart2 << nLb) | nLowPart2;
+}
+
+UINT searchMonotonic(const BYTE* pb,
+   UINT nQuantumSize, UINT nP1, UINT nP2,
+   UINT64 n)
 {
    // Do a binary search for the value n within the range [nP1, nP2> in the Elias-Fano list
    while (1) {
@@ -513,7 +670,9 @@ UINT searchMonotonic(const BYTE* pb, UINT nQuantumSize, UINT nP1, UINT nP2, UINT
    }
 }
 
-UINT searchMonotonicPrefix(const BYTE* pb, UINT nQuantumSize, UINT nP1, UINT nP2, UINT64 n)
+UINT searchMonotonicPrefix(const BYTE* pb,
+   UINT nQuantumSize, UINT nP1, UINT nP2,
+   UINT64 n)
 {
    // Add a prefix sum to the value n before searching for it in the Elias-Fano list
    if (nP1 >= nP2)
@@ -533,7 +692,9 @@ struct PartitionListHeader {
 
 #pragma pack(pop)
 
-UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, UINT nIndex)
+UINT64 lookupPartition(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum,
+   UINT nIndex)
 {
    // Look up a value from a partitioned monotonic (Elias-Fano) list
    UINT nQ = nIndex / nOuterQuantum;
@@ -543,6 +704,28 @@ UINT64 lookupPartition(const BYTE* pb, UINT nOuterQuantum, UINT nInnerQuantum, U
    const BYTE* pbInner = pb + pHeader->anChunkIndex[nQ];
    UINT64 nPrefix = nQ ? lookupMonotonic(pbOuter, nInnerQuantum, nQ - 1) : 0;
    return nPrefix + lookupMonotonic(pbInner, nInnerQuantum, nR);
+}
+
+VOID lookupPairPartition(const BYTE* pb,
+   UINT nOuterQuantum, UINT nInnerQuantum,
+   UINT nIndex, UINT64* pn1, UINT64* pn2)
+{
+   // Look up a value from a partitioned monotonic (Elias-Fano) list
+   UINT nR = nIndex % nOuterQuantum;
+   if (nR == nOuterQuantum - 1) {
+      // Looking up the last element in a quantum: we need two lookups
+      *pn1 = lookupPartition(pb, nOuterQuantum, nInnerQuantum, nIndex);
+      *pn2 = lookupPartition(pb, nOuterQuantum, nInnerQuantum, nIndex + 1);
+      return;
+   }
+   UINT nQ = nIndex / nOuterQuantum;
+   const PartitionListHeader* pHeader = (const PartitionListHeader*)pb;
+   const BYTE* pbOuter = pb + sizeof(UINT32) * (1 + pHeader->nChunks);
+   const BYTE* pbInner = pb + pHeader->anChunkIndex[nQ];
+   UINT64 nPrefix = nQ ? lookupMonotonic(pbOuter, nInnerQuantum, nQ - 1) : 0;
+   lookupPairMonotonic(pbInner, nInnerQuantum, nR, pn1, pn2);
+   *pn1 += nPrefix;
+   *pn2 += nPrefix;
 }
 
 UINT searchPartition(const BYTE* pb,
