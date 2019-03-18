@@ -155,6 +155,10 @@ class Ngrams:
         self.ngrams = NgramStorage()
         self.ngrams.load(BINARY_FILENAME)
 
+    def __contains__(self, word):
+        """ Return True if the word exists as a unigram """
+        return word and (self.ngrams.word_to_id(word) is not None)
+
     def freq(self, *args):
         """ Return the frequency of the n-gram given in *args, where
             1 <= n <= 3. The frequency is adjusted so that n-grams
