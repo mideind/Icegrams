@@ -96,9 +96,9 @@ def test_partitioned_list():
 
 def test_trigrams():
     n = Ngrams()
-    assert n.freq('hálfur', 'millimetri', 'að') == 2
-    assert n.freq("xxx", "yyy", "zzz") == 1
-    assert n.freq("Hann", "var", "zzz") == 1
+    assert n.freq('hálfur', 'millimetri', 'að') == 1
+    assert n.adj_freq("xxx", "yyy", "zzz") == 1
+    assert n.adj_freq("Hann", "var", "zzz") == 1
 
     assert n.freq("") > 11700000
     assert n.freq("", "Hér") > 20200
@@ -106,7 +106,7 @@ def test_trigrams():
     assert n.prob("Ísland") > 0.00039
     assert n.logprob("Ísland") > -7.830
     assert n.freq("Katrín", "Jakobsdóttir") > 3500
-    assert n.freq("velta", "fyrirtækisins", "er") >= 5
+    assert n.adj_freq("velta", "fyrirtækisins", "er") >= 5
 
     assert "Jakobsdóttir" in set(u for u, lp in n.succ(10, "Katrín"))
     assert "Gunnarsdóttir" in set(u for u, lp in n.succ(10, "Þorgerður", "Katrín"))
