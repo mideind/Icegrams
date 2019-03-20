@@ -27,8 +27,8 @@
 
 # Expose the icegrams API
 
-from .ngrams import Ngrams
+from .ngrams import Ngrams, MAX_ORDER
 
 __author__ = "Miðeind ehf."
 __copyright__ = "(C) 2019 Miðeind ehf."
-__version__ = "0.2.0"
+__version__ = "0.3.0"

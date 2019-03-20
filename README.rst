@@ -48,7 +48,7 @@ Example
 >>> ng = Ngrams()
 >>> # Obtain the frequency of the unigram 'Ísland'
 >>> ng.freq("Ísland")
-42019
+42018
 >>> # Obtain the probability of the unigram 'Ísland', as a fraction
 >>> # of the frequency of all unigrams in the database
 >>> ng.prob("Ísland")
@@ -58,7 +58,7 @@ Example
 -7.8290769196308005
 >>> # Obtain the frequency of the bigram 'Katrín Jakobsdóttir'
 >>> ng.freq("Katrín", "Jakobsdóttir")
-3518
+3517
 >>> # Obtain the probability of 'Jakobsdóttir' given 'Katrín'
 >>> ng.prob("Katrín", "Jakobsdóttir")
 0.23298013245033142
@@ -67,9 +67,9 @@ Example
 0.013642384105960274
 >>> # Obtain the frequency of 'velta fyrirtækisins er'
 >>> ng.freq("velta", "fyrirtækisins", "er")
-5
->>> # All frequencies are adjusted, i.e incremented by 1
->>> ng.freq("xxx", "yyy", "zzz")
+4
+>>> # adj_freq returns adjusted frequencies, i.e incremented by 1
+>>> ng.adj_freq("xxx", "yyy", "zzz")
 1
 
 *********
@@ -101,13 +101,12 @@ The Ngrams class
 
   * ``str[] *args`` A parameter sequence of consecutive unigrams
     to query the frequency for.
-  * **returns** An integer with the adjusted frequency of the unigram,
-    bigram or trigram. The adjusted frequency is the actual
-    frequency plus 1. The method thus never returns 0.
+  * **returns** An integer with the frequency of the unigram,
+    bigram or trigram.
 
   To query for the frequency of a unigram in the text, call
   ``ng.freq("unigram1")``. This returns the number of times that
-  the unigram appears in the database, plus 1. The unigram is
+  the unigram appears in the database. The unigram is
   queried as-is, i.e. with no string stripping or lowercasing.
 
   To query for the frequency of a bigram in the text, call
@@ -123,11 +122,49 @@ The Ngrams class
   Examples::
 
     >>>> ng.freq("stjórnarskrá")
-    2974
+    2973
     >>>> ng.freq("stjórnarskrá", "lýðveldisins")
-    40
+    39
     >>>> ng.freq("stjórnarskrá", "lýðveldisins", "Íslands")
+    12
+    >>>> ng.freq("xxx", "yyy", "zzz")
+    0
+
+* ``adj_freq(self, *args) -> int``
+
+  Returns the adjusted frequency of a unigram, bigram or trigram.
+
+  * ``str[] *args`` A parameter sequence of consecutive unigrams
+    to query the frequency for.
+  * **returns** An integer with the adjusted frequency of the unigram,
+    bigram or trigram. The adjusted frequency is the actual
+    frequency plus 1. The method thus never returns 0.
+
+  To query for the frequency of a unigram in the text, call
+  ``ng.adj_freq("unigram1")``. This returns the number of times that
+  the unigram appears in the database, plus 1. The unigram is
+  queried as-is, i.e. with no string stripping or lowercasing.
+
+  To query for the frequency of a bigram in the text, call
+  ``ng.adj_freq("unigram1", "unigram2")``.
+
+  To query for the frequency of a trigram in the text, call
+  ``ng.adj_freq("unigram1", "unigram2", "unigram3")``.
+
+  If you pass more than 3 arguments to ``ng.adj_freq()``, only the
+  last 3 are significant, and the query will be treated
+  as a trigram query.
+
+  Examples::
+
+    >>>> ng.adj_freq("stjórnarskrá")
+    2974
+    >>>> ng.adj_freq("stjórnarskrá", "lýðveldisins")
+    40
+    >>>> ng.adj_freq("stjórnarskrá", "lýðveldisins", "Íslands")
     13
+    >>>> ng.adj_freq("xxx", "yyy", "zzz")
+    1
 
 * ``prob(self, *args) -> float``
 
@@ -173,15 +210,15 @@ The Ngrams class
     probability of the given unigram, bigram or trigram.
 
   The probability of a *unigram* is
-  the frequency of the unigram divided by the sum of the
+  the adjusted frequency of the unigram divided by the sum of the
   frequencies of all unigrams in the database.
 
-  The probability of a *bigram* ``(u1, u2)`` is the frequency
-  of the bigram divided by the frequency of the unigram ``u1``,
+  The probability of a *bigram* ``(u1, u2)`` is the adjusted frequency
+  of the bigram divided by the adjusted frequency of the unigram ``u1``,
   i.e. how likely ``u2`` is to succeed ``u1``.
 
-  The probability of a trigram ``(u1, u2, u3)`` is the frequency
-  of the trigram divided by the frequency of the bigram ``(u1, u2)``,
+  The probability of a trigram ``(u1, u2, u3)`` is the adjusted frequency
+  of the trigram divided by the adjusted frequency of the bigram ``(u1, u2)``,
   i.e. how likely ``u3`` is to succeed ``u1 u2``.
 
   If you pass more than 3 arguments to ``ng.logprob()``, only the

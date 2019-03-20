@@ -128,6 +128,9 @@ ALPHABET = (
 assert len(ALPHABET) < 2**7 - 1
 ALPHABET_SET = set(ALPHABET)
 
+# Maximum N-gram order, in this case 3 for trigrams
+MAX_ORDER = 3
+
 
 def to_bytes(str):
     """ Convert string from normal Python representation to
@@ -161,12 +164,19 @@ class Ngrams:
 
     def freq(self, *args):
         """ Return the frequency of the n-gram given in *args, where
+            1 <= n <= 3 """
+        if not args:
+            raise ValueError("Must provide at least one string argument")
+        return self.ngrams.freq(*args)
+
+    def adj_freq(self, *args):
+        """ Return the frequency of the n-gram given in *args, where
             1 <= n <= 3. The frequency is adjusted so that n-grams
             that do not occur in the database have frequency 1, and all
             others have their actual frequency incremented by one. """
         if not args:
             raise ValueError("Must provide at least one string argument")
-        return self.ngrams.freq(*args)
+        return self.ngrams.freq(*args) + 1
 
     def logprob(self, *args):
         """ Return the log of the approximate probability
@@ -310,8 +320,7 @@ class BaseList:
 
     def lookup_pair(self, ix):
         """ Return the pair of values at [ix] and [ix+1] """
-        # !!! TODO: Optimize this
-        return (self.lookup(ix), self.lookup(ix + 1))
+        raise NotImplementedError
 
 
 class MonotonicList(BaseList):
@@ -629,7 +638,7 @@ class _Level:
 
     def reset(self, depth):
         self.cnt = 0
-        if depth >= NgramStorage.MAX_N:
+        if depth >= MAX_ORDER:
             self.d = None
         else:
             self.d = defaultdict(lambda: _Level(depth + 1))
@@ -640,8 +649,6 @@ class NgramStorage:
     """ NgramStorage wraps the compressed binary representation of
         the trigram store """
 
-    # We store unigrams, bigrams and trigrams
-    MAX_N = 3
     # We store an index position in the frequency array once
     # every FREQ_QUANTUM_SIZE frequency values
     FREQ_QUANTUM_SIZE = 1024
@@ -741,35 +748,35 @@ class NgramStorage:
     def unigram_frequency(self, i0):
         """ Return the adjusted frequency of the unigram i0,
             specified as a vocabulary index. """
-        return self.lookup_frequency(1, self._unigram_freqs, i0) + 1
+        return self.lookup_frequency(1, self._unigram_freqs, i0)
 
     def unigram_logprob(self, i0):
         """ Return the log of the probability of the unigram
             given by vocabulary index i0, relative to the entire
             unigram frequency count """
-        return math.log(self.unigram_frequency(i0)) - self.log_ucnt
+        return math.log(self.unigram_frequency(i0) + 1) - self.log_ucnt
 
     def bigram_frequency(self, i0, i1):
         """ Return the adjusted frequency of the bigram (i0, i1),
             given as vocabulary indices. """
         # Look up the pointer range for i0 in the unigram pointers
         if i0 is None or i1 is None:
-            return 1
+            return 0
         # Check degenerate case
         if not (i0 or i1):
-            return 1
+            return 0
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
         i = self._bigram_pl.search_prefix(p1, p2, i1)
-        return self.lookup_frequency(2, self._bigram_freqs, i) + 1
+        return self.lookup_frequency(2, self._bigram_freqs, i)
 
     def bigram_logprob(self, i0, i1):
         """ Return the log of the probability of the bigram
             consisting of vocabulary indices i0 and i1,
             relative to the unigram frequency of i0 """
         return (
-            math.log(self.bigram_frequency(i0, i1))
-            - math.log(self.unigram_frequency(i0))
+            math.log(self.bigram_frequency(i0, i1) + 1)
+            - math.log(self.unigram_frequency(i0) + 1)
         )
 
     def trigram_frequency(self, i0, i1, i2):
@@ -777,11 +784,11 @@ class NgramStorage:
             given as vocabulary indices. """
         # Look up the pointer range for i0 in the unigram pointers
         if i0 is None or i1 is None or i2 is None:
-            return 1
+            return 0
         # Check degenerate cases
         if not (i0 or i1 or i2):
             # This is (0, 0, 0)
-            return 1
+            return 0
         if not (i0 or i1):
             # This is (0, 0, w2): lookup (0, w2) instead
             return self.bigram_frequency(i1, i2)
@@ -793,10 +800,10 @@ class NgramStorage:
         i = self._bigram_pl.search_prefix(p1, p2, i1)
         if i is None:
             # Not found
-            return 1
+            return 0
         p1, p2 = self._bigram_ptrs_ml.lookup_pair(i)
         if p1 >= p2:
-            return 1
+            return 0
         # Apply the Pibiri & Venturini trick:
         # Remap i2 to an index within the list of children of i1
         q1, q2 = self._unigram_ptrs_ml.lookup_pair(i1)
@@ -804,17 +811,17 @@ class NgramStorage:
         if remapped_id is None:
             # This can happen if (i0, i1) is present but (i1, i2)
             # is not. In this case, (i0, i1, i2) is not found.
-            return 1
+            return 0
         i = self._trigram_pl.search_prefix(p1, p2, remapped_id - q1)
-        return self.lookup_frequency(3, self._trigram_freqs, i) + 1
+        return self.lookup_frequency(3, self._trigram_freqs, i)
 
     def trigram_logprob(self, i0, i1, i2):
         """ Return the log of the probability of the trigram
             consisting of vocabulary indices i0, i1 and i2,
             relative to the bigram of i0 and i1 """
         return (
-            math.log(self.trigram_frequency(i0, i1, i2))
-            - math.log(self.bigram_frequency(i0, i1))
+            math.log(self.trigram_frequency(i0, i1, i2) + 1)
+            - math.log(self.bigram_frequency(i0, i1) + 1)
         )
 
     _FREQ_DISPATCH = {1: unigram_frequency, 2:bigram_frequency, 3:trigram_frequency}
@@ -824,10 +831,10 @@ class NgramStorage:
             1 <= n <= 3. The frequency is adjusted so that n-grams
             that do not occur in the database have frequency 1, and all
             others have their actual frequency incremented by one. """
-        if len(args) > self.MAX_N:
+        if len(args) > MAX_ORDER:
             # Allow more than 3 arguments, but then we only return the
             # trigram probability of the last 3
-            args = args[-self.MAX_N:]
+            args = args[-MAX_ORDER:]
         return self._FREQ_DISPATCH[len(args)](self, *self.indices(*args))
 
     _PROB_DISPATCH = {1: unigram_logprob, 2:bigram_logprob, 3:trigram_logprob}
@@ -836,10 +843,10 @@ class NgramStorage:
         """ Return the log of the approximate probability
             of word w(n) given its predecessors w(1)..w(n-1),
             for 1 <= n <= 3 (i.e. unigram, bigram or trigram) """
-        if len(args) > self.MAX_N:
+        if len(args) > MAX_ORDER:
             # Allow more than 3 arguments, but then we only return the
             # trigram probability of the last 3
-            args = args[-self.MAX_N:]
+            args = args[-MAX_ORDER:]
         return self._PROB_DISPATCH[len(args)](self, *self.indices(*args))
 
     def unigram_succ(self, n, i0):
@@ -897,8 +904,8 @@ class NgramStorage:
             in *args, of length <= n. The list consists of
             tuples of (word, log probability), in descending
             order of log probability. """
-        if len(args) >= self.MAX_N:
-            args = args[-(self.MAX_N - 1):]
+        if len(args) >= MAX_ORDER:
+            args = args[-(MAX_ORDER - 1):]
         return self._SUCC_DISPATCH[len(args)](self, n, *self.indices(*args))
 
     def read_tsv(self, fname, *, add_all_bigrams=False):
@@ -1389,7 +1396,7 @@ class NgramStorage:
         pos = f.tell()
         # Compressing this list would save a few kilobytes but make
         # retrieval slower, so it's probably not worth it
-        for level in range(self.MAX_N + 1):
+        for level in range(MAX_ORDER + 1):
             freqs = self.freqs[level]
             assert len(freqs) < 1 << 32
             f.write(UINT32.pack(len(freqs)))
@@ -1484,7 +1491,7 @@ class NgramStorage:
         # Load the freqs rank list into memory
         self.freqs = []
         loc = 0
-        for level in range(self.MAX_N + 1):
+        for level in range(MAX_ORDER + 1):
             num = UINT32.unpack_from(self._freqs, loc)[0]
             loc += 4
             fql = []
