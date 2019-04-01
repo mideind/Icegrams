@@ -104,13 +104,15 @@ TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
 if __package__:
+    # Imported as a package
     from ._trie import lib as trie_cffi, ffi
-    # Make sure that the ord.compressed filename is
+    # Make sure that the trigrams.bin file is
     # unpacked and ready for use
     import pkg_resources
     # Note: the resource path below should NOT use os.path.join()
     BINARY_FILENAME = pkg_resources.resource_filename(__name__, "resources/trigrams.bin")
 else:
+    # Running as a main program
     from _trie import lib as trie_cffi, ffi
     from trie import Trie
     BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
@@ -746,7 +748,7 @@ class NgramStorage:
         return self.freqs[level][rank]
 
     def unigram_frequency(self, i0):
-        """ Return the adjusted frequency of the unigram i0,
+        """ Return the frequency of the unigram i0,
             specified as a vocabulary index. """
         return self.lookup_frequency(1, self._unigram_freqs, i0)
 
@@ -757,7 +759,7 @@ class NgramStorage:
         return math.log(self.unigram_frequency(i0) + 1) - self.log_ucnt
 
     def bigram_frequency(self, i0, i1):
-        """ Return the adjusted frequency of the bigram (i0, i1),
+        """ Return the frequency of the bigram (i0, i1),
             given as vocabulary indices. """
         # Look up the pointer range for i0 in the unigram pointers
         if i0 is None or i1 is None:
@@ -780,7 +782,7 @@ class NgramStorage:
         )
 
     def trigram_frequency(self, i0, i1, i2):
-        """ Return the adjusted frequency of the trigram (i0, i1, i2),
+        """ Return the frequency of the trigram (i0, i1, i2),
             given as vocabulary indices. """
         # Look up the pointer range for i0 in the unigram pointers
         if i0 is None or i1 is None or i2 is None:
@@ -1016,8 +1018,7 @@ class NgramStorage:
                     w0, w1, w2 = a[0:3]
                     charset = set(w0 + w1 + w2)
                     if not charset or not charset.issubset(ALPHABET_SET):
-                        # Ignore trigrams that contain out-of-alphabet code points,
-                        # such as Russian or Arabic characters
+                        # Ignore trigrams that contain out-of-alphabet code points
                         # print("Skipping line {0}".format(line))
                         continue
                     i0, i1, i2 = ids[to_bytes(w0)], ids[to_bytes(w1)], ids[to_bytes(w2)]
