@@ -2,8 +2,8 @@
 Icegrams: A fast, compact trigram library for Icelandic
 =======================================================
 
-.. image:: https://travis-ci.com/vthorsteinsson/Icegrams.svg?branch=master
-    :target: https://travis-ci.com/vthorsteinsson/Icegrams
+.. image:: https://travis-ci.com/mideind/Icegrams.svg?branch=master
+    :target: https://travis-ci.com/mideind/Icegrams
 
 ********
 Overview
@@ -321,7 +321,7 @@ To install this package::
 
 If you want to be able to edit the source, do like so (assuming you have **git** installed)::
 
-    $ git clone https://github.com/vthorsteinsson/Icegrams
+    $ git clone https://github.com/mideind/Icegrams
     $ cd Icegrams
     $ # [ Activate your virtualenv here if you have one ]
     $ python setup.py develop
