@@ -103,7 +103,12 @@ TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
-if __package__:
+if __name__ == "__main__":
+    # Running as a main program
+    from _trie import lib as trie_cffi, ffi
+    from trie import Trie
+    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
+else:
     # Imported as a package
     from ._trie import lib as trie_cffi, ffi
     # Make sure that the trigrams.bin file is
@@ -111,11 +116,6 @@ if __package__:
     import pkg_resources
     # Note: the resource path below should NOT use os.path.join()
     BINARY_FILENAME = pkg_resources.resource_filename(__name__, "resources/trigrams.bin")
-else:
-    # Running as a main program
-    from _trie import lib as trie_cffi, ffi
-    from trie import Trie
-    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
 
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")

@@ -64,7 +64,7 @@ setup(
     name="icegrams",
     # Remember to modify version numbers in
     # src/icegrams/__init__.py as well
-    version="0.3.0",
+    version="0.4.0",
     license="GNU GPLv3",
     description="Trigram statistics for Icelandic",
     long_description="{0}\n{1}".format(
@@ -74,12 +74,12 @@ setup(
     ),
     author="Miðeind ehf",
     author_email="vt@extrada.com",
-    url="https://github.com/vthorsteinsson/Icegrams",
+    url="https://github.com/mideind/Icegrams",
     packages=find_packages("src"),
     package_dir={"": "src"},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
     include_package_data=True,
-    zip_safe=True,
+    zip_safe=False,
     classifiers=[
         # complete classifier list: http://pypi.python.org/pypi?%3Aaction=list_classifiers
         "Development Status :: 4 - Beta",
