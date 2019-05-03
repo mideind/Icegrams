@@ -337,7 +337,7 @@ class MonotonicList(BaseList):
         # If b is given, it should be a byte buffer of some sort
         # (usually a memoryview() object)
         self.b = b
-        self.ffi_b = None if b is None else ffi.from_buffer(b)
+        self.ffi_b = None if b is None else ffi.cast("uint8_t*", ffi.from_buffer(b))
         self.n = 0
         self.u = 0
         self.low_bits = 0
@@ -442,7 +442,7 @@ class MonotonicList(BaseList):
         if frag:
             parts.append(b"\x00" * (4 - frag))
         self.b = b"".join(parts)
-        self.ffi_b = ffi.from_buffer(self.b)
+        self.ffi_b = ffi.cast("uint8_t*", ffi.from_buffer(self.b))
 
     def to_bytes(self):
         """ Return a bytes object containing the compressed list """
@@ -505,7 +505,7 @@ class PartitionedMonotonicList(BaseList):
 
     def __init__(self, b=None):
         self.b = b
-        self.ffi_b = None if b is None else ffi.from_buffer(b)
+        self.ffi_b = None if b is None else ffi.cast("uint8_t*", ffi.from_buffer(b))
 
     def compress(self, int_list):
         """ Compress int_list into a two-level partitioned
@@ -583,7 +583,7 @@ class PartitionedMonotonicList(BaseList):
         if frag:
             parts.append(b"\x00" * (4 - frag))
         self.b = b"".join(parts)
-        self.ffi_b = ffi.from_buffer(self.b)
+        self.ffi_b = ffi.cast("uint8_t*", ffi.from_buffer(self.b))
 
     def to_bytes(self):
         """ Return the byte buffer containing the compressed list """
@@ -696,7 +696,10 @@ class NgramStorage:
         if word == "":
             return 0
         try:
-            m = trie_cffi.mapping(self._mmap_buffer, to_bytes(word))
+            m = trie_cffi.mapping(
+                ffi.cast("uint8_t*", self._mmap_buffer),
+                to_bytes(word)
+            )
         except ValueError:
             # The word contains a character that is not in our alphabet
             return None
@@ -743,7 +746,9 @@ class NgramStorage:
         if index is None:
             return 0
         buf = ffi.from_buffer(b)
-        rank = trie_cffi.lookupFrequency(buf, self.FREQ_QUANTUM_SIZE, index)
+        rank = trie_cffi.lookupFrequency(
+            ffi.cast("uint8_t*", buf), self.FREQ_QUANTUM_SIZE, index
+        )
         # ...and finally retrieve the actual frequency
         return self.freqs[level][rank]
 
