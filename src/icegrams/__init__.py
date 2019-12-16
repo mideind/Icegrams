@@ -4,7 +4,7 @@
 
     __init__.py
 
-    Copyright(C) 2019 Miðeind ehf.
+    Copyright (C) 2019 Miðeind ehf.
     Original author: Vilhjálmur Þorsteinsson
 
         This program is free software: you can redistribute it and/or modify
@@ -31,4 +31,4 @@ from .ngrams import Ngrams, MAX_ORDER
 
 __author__ = "Miðeind ehf."
 __copyright__ = "(C) 2019 Miðeind ehf."
-__version__ = "0.4.0"
+__version__ = "0.5.0"

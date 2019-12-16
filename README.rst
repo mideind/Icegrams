@@ -338,3 +338,8 @@ virtualenv), then run::
 
     $ python -m pytest
 
+*********
+Changelog
+*********
+
+* Version 0.5.0: Trigrams corpus has been spell-checked
