@@ -9,7 +9,7 @@ Icegrams: A fast, compact trigram library for Icelandic
 Overview
 ********
 
-**Icegrams** is a Python 3.x package that encapsulates a
+**Icegrams** is a Python 3 (>= 3.5) package that encapsulates a
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
@@ -297,19 +297,18 @@ uses the rules documented there.
 Prerequisites
 *************
 
-This package runs on CPython 3.4 or newer, and on PyPy 3.5 or newer. It
+This package runs on CPython 3.5 or newer, and on PyPy 3.5 or newer. It
 has been tested on Linux (gcc on x86-64 and ARMhf), MacOS (clang) and
 Windows (MSVC).
 
 If a binary wheel package isn't available on `PyPI <https://pypi.org>`_
-for your system, you may need to have the ``python3-dev`` and/or potentially
-``python3.6-dev`` packages (or their Windows equivalents) installed on your
-system to set up Icegrams successfully. This is because a source distribution
+for your system, you may need to have the ``python3-dev`` package
+(or its Windows equivalent) installed on your system to set up
+Icegrams successfully. This is because a source distribution
 install requires a C++ compiler and linker::
 
     # Debian or Ubuntu:
     sudo apt-get install python3-dev
-    sudo apt-get install python3.6-dev
 
 ************
 Installation
@@ -342,4 +341,5 @@ virtualenv), then run::
 Changelog
 *********
 
+* Version 0.6.0: Python type annotations added
 * Version 0.5.0: Trigrams corpus has been spell-checked

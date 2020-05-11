@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-
 """
+
     Icegrams: A trigrams library for Icelandic
 
     setup.py
 
-    Copyright (C) 2019 Miðeind ehf.
+    Copyright (C) 2020 Miðeind ehf.
     Author: Vilhjálmur Þorsteinsson
 
         This program is free software: you can redistribute it and/or modify
@@ -45,8 +45,8 @@ from setuptools import find_packages
 from setuptools import setup
 
 
-if sys.version_info < (3, 4):
-    print("Icegrams requires Python >= 3.4")
+if sys.version_info < (3, 5):
+    print("Icegrams requires Python >= 3.5")
     sys.exit(1)
 
 
@@ -64,7 +64,7 @@ setup(
     name="icegrams",
     # Remember to modify version numbers in
     # src/icegrams/__init__.py as well
-    version="0.5.0",
+    version="0.6.0",
     license="GNU GPLv3",
     description="Trigram statistics for Icelandic",
     long_description="{0}\n{1}".format(
@@ -78,6 +78,7 @@ setup(
     packages=find_packages("src"),
     package_dir={"": "src"},
     py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
+    package_data={"icegrams": ["py.typed"]},
     include_package_data=True,
     zip_safe=False,
     classifiers=[
@@ -93,10 +94,10 @@ setup(
         "Natural Language :: Icelandic",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.4",
         "Programming Language :: Python :: 3.5",
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries :: Python Modules",

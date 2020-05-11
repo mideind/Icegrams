@@ -4,7 +4,7 @@
 
     trie.py
 
-    Copyright (C) 2019 Miðeind ehf.
+    Copyright (C) 2020 Miðeind ehf.
     Original author: Vilhjálmur Þorsteinsson
 
     This module encapsulated the unigram trie logic used
@@ -15,6 +15,7 @@
 
 """
 
+from typing import Optional, IO, List
 from collections import deque
 from heapq import heappush, heappop, heapify
 import struct
@@ -31,14 +32,14 @@ class _Node:
 
     __slots__ = ("fragment", "value", "children")
 
-    def __init__(self, fragment, value):
+    def __init__(self, fragment: bytes, value: Optional[int]) -> None:
         # The key fragment that leads into this node (and value)
         self.fragment = fragment
         self.value = value
         # List of outgoing nodes
-        self.children = None
+        self.children = None  # type: Optional[List[_Node]]
 
-    def add(self, fragment, value):
+    def add(self, fragment: bytes, value: int) -> Optional[int]:
         """ Add the given remaining key fragment to this node """
         if len(fragment) == 0:
             if self.value is not None:
@@ -128,7 +129,7 @@ class _Node:
         self.children[mid] = node
         return None
 
-    def lookup(self, fragment):
+    def lookup(self, fragment: bytes) -> Optional[int]:
         """ Lookup the given key fragment in this node and its children
             as necessary """
         if not fragment:
@@ -147,8 +148,8 @@ class _Node:
         # No route matches: the key was not found
         return None
 
-    def __str__(self):
-        s = "Fragment: '{0}', value '{1}'\n".format(self.fragment, self.value)
+    def __str__(self) -> str:
+        s = "Fragment: '{0!r}', value '{1}'\n".format(self.fragment, self.value)
         c = ["   {0}".format(child) for child in self.children] if self.children else []
         return s + "\n".join(c)
 
@@ -159,17 +160,19 @@ class Trie:
         Each node in the trie contains a prefix string, leading
         to its children. """
 
-    def __init__(self, root_fragment=b"", reserve_zero_for_empty=True):
+    def __init__(
+        self, root_fragment: bytes=b"", reserve_zero_for_empty: bool=True
+    ) -> None:
         # We reserve the 0 index for the empty string
         self._cnt = 1 if reserve_zero_for_empty else 0
         self._root = _Node(root_fragment, None)
 
     @property
-    def root(self):
+    def root(self) -> _Node:
         """ Return the root node of the trie """
         return self._root
 
-    def add(self, key, value=None):
+    def add(self, key: bytes, value: Optional[int]=None) -> int:
         """ Add the given (key, value) pair to the trie.
             Duplicates are not allowed and not added to the trie.
             If the value is None, it is set to the number of entries
@@ -188,7 +191,7 @@ class Trie:
         self._cnt += 1
         return value
 
-    def get(self, key, default=None):
+    def get(self, key: bytes, default: Optional[int]=None) -> Optional[int]:
         """ Lookup the given key and return the associated value,
             or the default if the key is not found. """
         if not key:
@@ -196,7 +199,7 @@ class Trie:
         value = self._root.lookup(key)
         return default if value is None else value
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: bytes) -> int:
         """ Lookup in square bracket notation """
         if not key:
             return 0
@@ -205,22 +208,22 @@ class Trie:
             raise KeyError(key)
         return value
 
-    def __len__(self):
+    def __len__(self) -> int:
         """ Return the number of unique keys within the trie,
             including the empty string sentinel that has the value 0 """
         return self._cnt
 
-    def write(self, f, *, verbose=False):
+    def write(self, f: IO, *, verbose: bool=False) -> None:
         """ Write the unigram trie contents to a packed binary stream """
         # We assume that the alphabet can be represented in 7 bits
-        todo = deque()
+        todo = deque()  # type: deque
         node_cnt = 0
         single_char_node_count = 0
         multi_char_node_count = 0
         no_child_node_count = 0
         max_distance = 0
 
-        def write_node(node, parent_loc):
+        def write_node(node: _Node, parent_loc: int) -> None:
             """ Write a single node to the packed binary stream,
                 and fix up the parent's pointer to the location
                 of this node """
@@ -295,7 +298,8 @@ class Trie:
 
         if verbose:
             print(
-                "Written {0:,} nodes, thereof {1:,} single-char nodes and {2:,} multi-char."
+                "Written {0:,} nodes, thereof {1:,} single-char nodes "
+                "and {2:,} multi-char."
                 .format(node_cnt, single_char_node_count, multi_char_node_count)
             )
             print("Childless nodes are {0:,}.".format(no_child_node_count))
