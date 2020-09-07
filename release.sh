@@ -11,6 +11,7 @@ chmod -x src/icegrams/*.cpp
 chmod -x src/icegrams/*.h
 chmod -x src/icegrams/resources/*
 # Create the base source distribution
+rm -rf build/*
 python setup.py sdist
 # Create the binary wheels
 source wheels.sh

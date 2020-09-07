@@ -18,6 +18,7 @@ __pycache__/
 *.tsv
 *.bin
 !src/icegrams/resources/trigrams.bin
+!*/src/icegrams/resources/trigrams.tsv
 
 # Doc stuff
 doc/Makefile

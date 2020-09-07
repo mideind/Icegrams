@@ -9,15 +9,15 @@ Icegrams: A fast, compact trigram library for Icelandic
 Overview
 ********
 
-**Icegrams** is a Python 3 (>= 3.5) package that encapsulates a
+**Icegrams** is an MIT-licensed Python 3 (>= 3.5) package that encapsulates a
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
-The almost 34 million trigrams are heavily compressed using radix tries and
-`quasi-succinct indexes <https://arxiv.org/abs/1206.4300>`_ employing
-Elias-Fano encoding. This enables the compressed trigram file to be mapped
-directly into memory, with no *ex ante* decompression, for fast queries
-(typically ~40 microseconds per lookup).
+14 million unique trigrams and their frequency counts are heavily compressed
+using radix tries and `quasi-succinct indexes <https://arxiv.org/abs/1206.4300>`_
+employing Elias-Fano encoding. This enables the ~43 megabyte compressed trigram file
+to be mapped directly into memory, with no *ex ante* decompression, for fast queries
+(typically ~10 microseconds per lookup).
 
 The Icegrams library is implemented in Python and C/C++, glued together via
 `CFFI <https://cffi.readthedocs.io/en/latest/>`_.
@@ -37,8 +37,15 @@ Icegrams is useful for instance in spelling correction, predictive typing,
 to help disabled people write text faster, and for various text generation,
 statistics and modelling tasks.
 
-Icegrams is built on the database of `Greynir.is <https://greynir.is>`_,
-comprising over 6 million sentences parsed from Icelandic news articles.
+The Icegrams trigram corpus is built from the 2017 edition of the
+Icelandic Gigaword Corpus
+(`Risamálheild <https://malheildir.arnastofnun.is/?mode=rmh2017>`_),
+which is collected and maintained by *The Árni Magnússon Institute*
+*for Icelandic Studies*. A mixed, manually vetted subset consisting of 157
+documents from the corpus was used as the source of the token stream,
+yielding over 100 million tokens. Trigrams that only occurred
+once or twice in the stream were eliminated before creating the
+compressed Icegrams database.
 
 *******
 Example
@@ -71,6 +78,14 @@ Example
 >>> # adj_freq returns adjusted frequencies, i.e incremented by 1
 >>> ng.adj_freq("xxx", "yyy", "zzz")
 1
+>>> # Obtain the N most likely successors of a given unigram or bigram,
+>>> # in descending order by log probability of each successor
+>>> ng.succ(10, "stjórnarskrá", "lýðveldisins")
+[('Íslands', -1.3708244393477589), ('.', -2.2427905461504567),
+    (',', -3.313814878299737), ('og', -3.4920631097060557), ('sem', -4.566577846795106),
+    ('er', -4.720728526622363), ('að', -4.807739903611993), ('um', -5.0084105990741445),
+    ('en', -5.0084105990741445), ('á', -5.25972502735505)]
+
 
 *********
 Reference
@@ -291,7 +306,13 @@ sentence.
 
 The tokenization of the source text into unigrams is done with the
 `Tokenizer package <https://pypi.org/project/tokenizer>`_ and
-uses the rules documented there.
+uses the rules documented there. Importantly, tokens other than words,
+abbreviations, entity names, person names and punctuation are
+**replaced by placeholders**. This means that all numbers are represented by the token
+``[NUMBER]``, amounts by ``[AMOUNT]``, dates by ``[DATEABS]`` and ``[DATEREL]``,
+e-mail addresses by ``[EMAIL]``, etc. For the complete mapping of token types
+to placeholder strings, see the
+`documentation for the Tokenizer package <https://github.com/mideind/Tokenizer/blob/master/README.rst>`_.
 
 *************
 Prerequisites
@@ -341,5 +362,7 @@ virtualenv), then run::
 Changelog
 *********
 
+* Version 1.0.0: New trigram database sourced from the Icelandic Gigaword Corpus
+  (Risamálheild) with improved tokenization. Replaced GNU GPLv3 with MIT license.
 * Version 0.6.0: Python type annotations added
 * Version 0.5.0: Trigrams corpus has been spell-checked
