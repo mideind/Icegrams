@@ -1,5 +1,7 @@
 graft src
 prune src/icegrams/__pycache__
+prune src/icegrams/venv
+prune test
 exclude src/icegrams/*.o
 exclude src/icegrams/*.so
 exclude src/icegrams/*.pyd
