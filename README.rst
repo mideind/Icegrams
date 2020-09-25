@@ -45,7 +45,8 @@ which is collected and maintained by *The Árni Magnússon Institute*
 documents from the corpus was used as the source of the token stream,
 yielding over 100 million tokens. Trigrams that only occurred
 once or twice in the stream were eliminated before creating the
-compressed Icegrams database.
+compressed Icegrams database. The creation process is further
+`described here <https://github.com/mideind/Icegrams/blob/master/doc/overview.md>`_.
 
 *******
 Example
