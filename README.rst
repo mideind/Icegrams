@@ -363,6 +363,8 @@ virtualenv), then run::
 Changelog
 *********
 
+* Version 1.1.0: Python 3.5 support dropped; macOS builds fixed; PyPy wheels
+  generated
 * Version 1.0.0: New trigram database sourced from the Icelandic Gigaword Corpus
   (Risamálheild) with improved tokenization. Replaced GNU GPLv3 with MIT license.
 * Version 0.6.0: Python type annotations added

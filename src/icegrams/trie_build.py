@@ -46,6 +46,7 @@ ffibuilder = cffi.FFI()
 
 _PATH = os.path.dirname(__file__) or "."
 WINDOWS = platform.system() == "Windows"
+MACOS = platform.system() == "Darwin"
 
 # What follows is the actual Python-wrapped C interface to trie.*.so
 # It must be kept in sync with trie.h
@@ -97,6 +98,9 @@ declarations = """
 
 if WINDOWS:
     extra_compile_args = ["/Zc:offsetof-"]
+elif MACOS:
+    os.environ["CFLAGS"] = "-stdlib=libc++"  # Fixes PyPy build on macOS 10.15.6+
+    extra_compile_args = ["-mmacosx-version-min=10.7", "-stdlib=libc++"]
 else:
     # Adding -O3 to the compiler arguments doesn't seem to make
     # any discernible difference in lookup speed
