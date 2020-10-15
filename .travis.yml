@@ -17,8 +17,8 @@ jobs:
     - name: "Linux (Python 3.8)"
       python: 3.8
 
-    - name: "Linux (Python 3.9)"
-      python: 3.9
+    - name: "Linux (Python 3.9-dev)"
+      python: 3.9-dev
 
     - name: "Linux (PyPy3)"
       python: pypy3

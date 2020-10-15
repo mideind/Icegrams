@@ -943,7 +943,7 @@ class NgramStorage:
             return []
         lp0 = math.log(self.lookup_frequency(1, self._unigram_freqs, i0) + 1)
         result = []
-        prefix_sum = 0 if p1 is 0 else self._bigram_pl.lookup(p1 - 1)
+        prefix_sum = 0 if p1 == 0 else self._bigram_pl.lookup(p1 - 1)
         for i in range(p1, p2):
             j = self._bigram_pl.lookup(i) - prefix_sum
             lpi = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
