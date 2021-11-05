@@ -9,7 +9,7 @@ Icegrams: A fast, compact trigram library for Icelandic
 Overview
 ********
 
-**Icegrams** is an MIT-licensed Python 3 (>= 3.5) package that encapsulates a
+**Icegrams** is an MIT-licensed Python 3 (>= 3.6) package that encapsulates a
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
@@ -319,7 +319,7 @@ to placeholder strings, see the
 Prerequisites
 *************
 
-This package runs on CPython 3.5 or newer, and on PyPy 3.5 or newer. It
+This package runs on CPython 3.6 or newer, and on PyPy 3.6 or newer. It
 has been tested on Linux (gcc on x86-64 and ARMhf), MacOS (clang) and
 Windows (MSVC).
 
