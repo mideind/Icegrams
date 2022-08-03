@@ -41,10 +41,7 @@ from typing import (
     Iterator, Iterable, Tuple, List, Optional, Dict, Set, Callable, Type, Any
 )
 
-import os
 import sys
-from itertools import islice, tee
-import collections
 import argparse
 import glob
 import random
@@ -63,24 +60,11 @@ from sqlalchemy.orm import sessionmaker, Session  # type: ignore
 from sqlalchemy.exc import SQLAlchemyError as DatabaseError  # type: ignore
 from sqlalchemy.schema import Table  # type: ignore
 
-from tokenizer import tokenize, correct_spaces, Tok, TOK
+from icegrams import trigrams
 
-
-# Obtain our path
-basepath, _ = os.path.split(os.path.realpath(__file__))
 
 # Create the SQLAlchemy ORM Base class
 Base: Type[Table] = declarative_base()
-
-
-# A set of all words we need to change
-CHANGING: Set[str] = set()
-# fACE_SK.txt
-REPLACING: Dict[str, str] = dict()
-# d.txt
-DELETING: Set[str] = set()
-# fMW.txt
-DOUBLING: Dict[str, List[str]] = dict()
 
 
 # Define the command line arguments
@@ -270,128 +254,10 @@ class Trigram(Base):
         return "Trigram(t1='{0}', t2='{1}', t3='{2}')".format(self.t1, self.t2, self.t3)
 
 
-def load_corrections() -> None:
-    """ Fills global data structures for correcting tokens """
-    with open(os.path.join(basepath, "correct.txt"), "r", encoding="utf-8") as myfile:
-        for line in myfile:
-            key, val = line.strip().split("\t")
-            REPLACING[key] = val
-            CHANGING.add(key)
-    with open(os.path.join(basepath, "delete.txt"), "r", encoding="utf-8") as myfile:
-        for line in myfile:
-            key = line.strip()
-            DELETING.add(key)
-            CHANGING.add(key)
-    with open(os.path.join(basepath, "split.txt"), "r", encoding="utf-8") as myfile:
-        for line in myfile:
-            key, val = line.strip().split("\t")
-            val = val.strip()
-            DOUBLING[key] = val.split()
-            CHANGING.add(key)
-            if key.islower() and val.islower():
-                # Also add uppercase version
-                key = key.capitalize()
-                val = val.capitalize()
-                DOUBLING[key] = val.split()
-                CHANGING.add(key)
-
-
-def handle_word(token: Tok) -> Iterator[str]:
-    """ Return the text of a word token, after potential editing """
-    t = token.txt
-    if t in CHANGING:
-        # We take a closer look
-        if t in REPLACING:
-            # Words we simply need to replace
-            yield REPLACING[t]
-        elif t in DELETING:
-            # Words that don't belong in trigrams
-            pass
-        elif t in DOUBLING:
-            # Words incorrectly in one token
-            for part in DOUBLING[t]:
-                yield part
-        else:
-            # Should not happen
-            assert False
-    elif " " in t:
-        yield from t.split()
-    else:
-        yield t
-
-
-def handle_punctuation(token: Tok) -> Iterator[str]:
-    """ Return the normalized version of punctuation """
-    yield token.val[1]
-
-
-def handle_passthrough(token: Tok) -> Iterator[str]:
-    """ Return the token text unchanged """
-    yield token.txt
-
-
-def handle_split(token: Tok) -> Iterator[str]:
-    """ Split the token text by spaces and return the components """
-    yield from token.txt.split()
-
-
-def handle_measurement(token: Tok) -> Iterator[str]:
-    """ Return a [NUMBER] token followed by a SI unit """
-    yield from ("[NUMBER]", token.val[0])
-
-
-def handle_none(token: Tok) -> Iterator[str]:
-    """ Empty generator """
-    yield from ()
-
-
-def handle_other(token: Tok) -> Iterator[str]:
-    """ Return a standard placeholder for the token kind """
-    yield "[" + TOK.descr[token.kind] + "]"
-
-
-# Dispatch the various token types to the appropriate generators,
-# defaulting to handle_others
-token_dispatch: Dict[int, Callable[[Tok], Iterator[str]]] = {
-    TOK.WORD: handle_word,
-    TOK.PUNCTUATION: handle_punctuation,
-    TOK.MEASUREMENT: handle_measurement,
-    TOK.MOLECULE: handle_passthrough,
-    TOK.PERSON: handle_split,
-    TOK.ENTITY: handle_split,
-    TOK.COMPANY: handle_split,
-    TOK.S_BEGIN: handle_none,
-    TOK.S_END: handle_none,
-    TOK.P_BEGIN: handle_none,
-    TOK.P_END: handle_none,
-    TOK.S_SPLIT: handle_none,
-}
-
-
-def tokens(text: str) -> Iterator[str]:
-    """ Generator for token stream """
-    toklist = list(tokenize(text, convert_measurements=True, replace_html_escapes=True))
-    if len(toklist) > 1 and all(t.kind != TOK.UNKNOWN for t in toklist):
-        # For each sentence, start and end with empty strings
-        yield ""
-        yield ""
-        for t in toklist:
-            yield from token_dispatch.get(t.kind, handle_other)(t)
-        yield ""
-        yield ""
-
-
-def trigrams(iterable: Iterable[str]) -> Iterator[Tuple[Any, ...]]:
-    """ Generate trigrams (tuples of three strings) from the given iterable """
-    return zip(
-        *((islice(seq, i, None) for i, seq in enumerate(tee(iterable, 3))))
-    )
-
-
 def process(session: SessionContext, text: str) -> int:
     """ Process a single line of text from an RMH file """
     upserted = 0
-    for tg in trigrams(tokens(text)):
+    for tg in trigrams(text):
         if any(tg):
             try:
                 Trigram.upsert(session, *tg)
@@ -429,8 +295,6 @@ def make_trigrams(path_iterator: Iterable[str], *, limit: int = None):
         table of a PostgreSQL database. """
 
     FLUSH_THRESHOLD = 10000
-
-    load_corrections()
 
     with SessionContext(commit=False) as session:
 
