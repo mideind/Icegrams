@@ -114,7 +114,7 @@ setup(
     ],
     keywords=["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"],
     setup_requires=["cffi>=1.10.0"],
-    install_requires=["cffi>=1.10.0"],
+    install_requires=["cffi>=1.10.0", "tokenizer>=3.4.1"],
     cffi_modules=[
         "src/icegrams/trie_build.py:ffibuilder"
     ],

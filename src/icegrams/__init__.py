@@ -36,6 +36,7 @@
 # Expose the icegrams API
 
 from .ngrams import Ngrams, MAX_ORDER
+from .utils import tokens, trigrams, trigrams_from_tokens
 
 __author__ = "Miðeind ehf."
 __copyright__ = "(C) 2020 Miðeind ehf."

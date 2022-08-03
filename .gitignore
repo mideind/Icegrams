@@ -81,3 +81,6 @@ $RECYCLE.BIN/
 *.msi
 *.msm
 *.msp
+
+# Vim swap files
+.*.swp
