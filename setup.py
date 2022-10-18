@@ -61,8 +61,7 @@ if sys.version_info < (3, 6):
 def read(*names, **kwargs):
     try:
         return io.open(
-            join(dirname(__file__), *names),
-            encoding=kwargs.get("encoding", "utf8")
+            join(dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")
         ).read()
     except (IOError, OSError):
         return ""
@@ -76,8 +75,9 @@ setup(
     license="MIT",
     description="Trigram statistics for Icelandic",
     long_description="{0}\n{1}".format(
-        re.compile("^.. start-badges.*^.. end-badges", re.M | re.S)
-            .sub("", read("README.rst")),
+        re.compile("^.. start-badges.*^.. end-badges", re.M | re.S).sub(
+            "", read("README.rst")
+        ),
         re.sub(":[a-z]+:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst")),
     ),
     author="Miðeind ehf",
@@ -113,9 +113,7 @@ setup(
         "Topic :: Text Processing :: Linguistic",
     ],
     keywords=["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"],
-    setup_requires=["cffi>=1.10.0"],
-    install_requires=["cffi>=1.10.0"],
-    cffi_modules=[
-        "src/icegrams/trie_build.py:ffibuilder"
-    ],
+    setup_requires=["cffi>=1.15.1"],
+    install_requires=["cffi>=1.15.1"],
+    cffi_modules=["src/icegrams/trie_build.py:ffibuilder"],
 )

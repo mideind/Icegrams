@@ -1,14 +1,11 @@
-
 from random import randint
 
 from icegrams import Ngrams
-from icegrams.ngrams import (
-    BitArray, MonotonicList, PartitionedMonotonicList
-)
+from icegrams.ngrams import BitArray, MonotonicList, PartitionedMonotonicList
 
 
 def test_compressed_list():
-    """ Test the compressed list classes """
+    """Test the compressed list classes"""
     ba = BitArray()
     ba.append(10, 4)
     ba.append(3, 2)
@@ -41,7 +38,7 @@ def test_compressed_list():
     assert len(ba) == (90 + 7) // 8
 
     for _ in range(100):
-        test_list = [randint(0,2000000) for _ in range(randint(1,1000))]
+        test_list = [randint(0, 2000000) for _ in range(randint(1, 1000))]
 
         test_list.sort()
         ml = MonotonicList()
@@ -65,38 +62,38 @@ def test_partitioned_list():
     assert pl[12177] == 12177
     assert pl[14177] == 14177
     assert pl[16177] == 16177
-    pl.compress([i*17 for i in range(1380000)])
-    assert pl[199] == 199*17
-    assert pl[2199] == 2199*17
-    assert pl[4199] == 4199*17
-    assert pl[7199] == 7199*17
-    assert pl[12177] == 12177*17
-    assert pl[14177] == 14177*17
-    assert pl[16177] == 16177*17
-    assert pl[120177] == 120177*17
-    assert pl[140177] == 140177*17
-    assert pl[160177] == 160177*17
-    assert pl[343085] == 343085*17
-    assert pl[1343085] == 1343085*17
+    pl.compress([i * 17 for i in range(1380000)])
+    assert pl[199] == 199 * 17
+    assert pl[2199] == 2199 * 17
+    assert pl[4199] == 4199 * 17
+    assert pl[7199] == 7199 * 17
+    assert pl[12177] == 12177 * 17
+    assert pl[14177] == 14177 * 17
+    assert pl[16177] == 16177 * 17
+    assert pl[120177] == 120177 * 17
+    assert pl[140177] == 140177 * 17
+    assert pl[160177] == 160177 * 17
+    assert pl[343085] == 343085 * 17
+    assert pl[1343085] == 1343085 * 17
     b = pl.to_bytes()
     pl = PartitionedMonotonicList(b)
-    assert pl[199] == 199*17
-    assert pl[2199] == 2199*17
-    assert pl[4199] == 4199*17
-    assert pl[7199] == 7199*17
-    assert pl[12177] == 12177*17
-    assert pl[14177] == 14177*17
-    assert pl[16177] == 16177*17
-    assert pl[120177] == 120177*17
-    assert pl[140177] == 140177*17
-    assert pl[160177] == 160177*17
-    assert pl[343085] == 343085*17
-    assert pl[1343085] == 1343085*17
+    assert pl[199] == 199 * 17
+    assert pl[2199] == 2199 * 17
+    assert pl[4199] == 4199 * 17
+    assert pl[7199] == 7199 * 17
+    assert pl[12177] == 12177 * 17
+    assert pl[14177] == 14177 * 17
+    assert pl[16177] == 16177 * 17
+    assert pl[120177] == 120177 * 17
+    assert pl[140177] == 140177 * 17
+    assert pl[160177] == 160177 * 17
+    assert pl[343085] == 343085 * 17
+    assert pl[1343085] == 1343085 * 17
 
 
 def test_trigrams():
     n = Ngrams()
-    assert n.freq('hundurinn', 'át', 'heimaverkefnið') == 4
+    assert n.freq("hundurinn", "át", "heimaverkefnið") == 4
     assert n.adj_freq("xxx", "yyy", "zzz") == 1
     assert n.adj_freq("Hann", "var", "zzz") == 1
 
@@ -117,5 +114,6 @@ def test_trigrams():
 
 def test_word_ids():
     n = Ngrams().ngrams
+    assert n
     for i in range(0, 2048):
         assert n.word_to_id(n.id_to_word(i)) == i
