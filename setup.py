@@ -113,7 +113,7 @@ setup(
         "Topic :: Text Processing :: Linguistic",
     ],
     keywords=["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"],
-    setup_requires=["cffi>=1.15.1"],
-    install_requires=["cffi>=1.15.1"],
+    setup_requires=["cffi>=1.15.0"],
+    install_requires=["cffi>=1.15.0"],
     cffi_modules=["src/icegrams/trie_build.py:ffibuilder"],
 )
