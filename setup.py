@@ -40,9 +40,6 @@
 
 """
 
-from __future__ import print_function
-from __future__ import unicode_literals
-
 import io
 import re
 import sys
@@ -53,8 +50,8 @@ from os.path import basename, dirname, join, splitext
 from setuptools import find_packages, setup  # type: ignore
 
 
-if sys.version_info < (3, 6):
-    print("Icegrams requires Python >= 3.6")
+if sys.version_info < (3, 7):
+    print("Icegrams requires Python >= 3.7")
     sys.exit(1)
 
 
@@ -113,7 +110,7 @@ setup(
         "Topic :: Text Processing :: Linguistic",
     ],
     keywords=["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"],
-    setup_requires=["cffi>=1.15.0"],
-    install_requires=["cffi>=1.15.0"],
+    setup_requires=["cffi==1.15.0"],
+    install_requires=["cffi==1.15.0"],
     cffi_modules=["src/icegrams/trie_build.py:ffibuilder"],
 )
