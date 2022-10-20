@@ -12,11 +12,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-
+      #  with:
+      #    lfs: true
       # Used to host cibuildwheel
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v3
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
       # - name: Install libffi-dev
       #   if: runner.os == 'Linux'
@@ -31,8 +32,12 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         # to supply options, put them in 'env', like:
         env:
-          CIBW_SKIP: cp36-* cp311-*
-          CIBW_BEFORE_ALL: pip install --upgrade pip setuptools wheel
+          CIBW_SKIP: cp36-* cp311-* # cp37-* cp38-* cp310-*  pp*
+          #CIBW_BEFORE_ALL: pip install --upgrade pip setuptools wheel
+          CIBW_BEFORE_BUILD: python3 -m pip install --upgrade setuptools wheel cffi
+          CIBW_ARCHS_MACOS: "arm64 x86_64 universal2"
+          CIBW_BUILD_FRONTEND: "build"
+          # CIBW_PROJECT_REQUIRES_PYTHON: ">=3.7"
 
       - uses: actions/upload-artifact@v3
         with:
