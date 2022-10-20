@@ -8,7 +8,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-10.15] # [ubuntu-latest, windows-latest]
+        os: [macos-12, ubuntu-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v3
@@ -17,7 +17,7 @@ jobs:
       # Used to host cibuildwheel
       - uses: actions/setup-python@v3
         with:
-          python-version: '3.9'
+          python-version: '3.10'
 
       # - name: Install libffi-dev
       #   if: runner.os == 'Linux'
@@ -32,10 +32,11 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         # to supply options, put them in 'env', like:
         env:
-          CIBW_SKIP: cp36-* cp311-* # cp37-* cp38-* cp310-*  pp*
-          #CIBW_BEFORE_ALL: pip install --upgrade pip setuptools wheel
-          CIBW_BEFORE_BUILD: python3 -m pip install --upgrade setuptools wheel cffi
-          CIBW_ARCHS_MACOS: "arm64 x86_64 universal2"
+          CIBW_SKIP: cp36-* cp311-* *musllinux* # cp37-* cp38-* cp310-*  pp*
+          CIBW_BEFORE_BUILD_MACOS: python3 -m pip install --upgrade setuptools wheel cffi
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          CIBW_ARCHS_LINUX: "x86_64"
           CIBW_BUILD_FRONTEND: "build"
           # CIBW_PROJECT_REQUIRES_PYTHON: ">=3.7"
 
