@@ -1,6 +1,9 @@
-name: Build wheels
+name: wheels
 
-on: [push]
+on:
+  push:
+    tags:
+      - '**'
 
 jobs:
   build_wheels:
