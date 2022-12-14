@@ -48,7 +48,6 @@ from os.path import basename, dirname, join, splitext
 
 from setuptools import find_packages, setup  # type: ignore
 
-from src.icegrams import __version__
 
 if sys.version_info < (3, 7):
     print("Icegrams requires Python >= 3.7")
