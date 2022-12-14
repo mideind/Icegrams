@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+#!/usr/bin/env python3
 """
 
     Icegrams: A trigrams library for Icelandic
@@ -36,12 +35,9 @@
     automatically compile the trie.cpp module to trie.*.so/.pyd
     and build the required CFFI Python wrapper via trie_build.py.
 
-    Note that installing under PyPy >= 3.6 is supported.
+    Note that installing under PyPy >= 3.7 is supported.
 
 """
-
-from __future__ import print_function
-from __future__ import unicode_literals
 
 import io
 import re
@@ -52,9 +48,10 @@ from os.path import basename, dirname, join, splitext
 
 from setuptools import find_packages, setup  # type: ignore
 
+from src.icegrams import __version__
 
-if sys.version_info < (3, 6):
-    print("Icegrams requires Python >= 3.6")
+if sys.version_info < (3, 7):
+    print("Icegrams requires Python >= 3.7")
     sys.exit(1)
 
 
@@ -69,9 +66,7 @@ def read(*names, **kwargs):
 
 setup(
     name="icegrams",
-    # Remember to modify version numbers in
-    # src/icegrams/__init__.py as well
-    version="1.1.0",
+    version="1.1.2",  # Also update in src/icegrams/__init__.py
     license="MIT",
     description="Trigram statistics for Icelandic",
     long_description="{0}\n{1}".format(
@@ -81,7 +76,7 @@ setup(
         re.sub(":[a-z]+:`~?(.*?)`", r"``\1``", read("CHANGELOG.rst")),
     ),
     author="Miðeind ehf",
-    author_email="vt@extrada.com",
+    author_email="mideind@mideind.is",
     url="https://github.com/mideind/Icegrams",
     packages=find_packages("src"),
     package_dir={"": "src"},
@@ -102,10 +97,11 @@ setup(
         "Natural Language :: Icelandic",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         "Topic :: Software Development :: Libraries :: Python Modules",

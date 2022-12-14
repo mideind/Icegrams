@@ -39,4 +39,4 @@ from .ngrams import Ngrams, MAX_ORDER
 
 __author__ = "Miðeind ehf."
 __copyright__ = "(C) 2020 Miðeind ehf."
-__version__ = "1.1.0"
+__version__ = "1.1.2"
