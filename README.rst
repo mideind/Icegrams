@@ -375,7 +375,7 @@ Changelog
 Copyright and licensing
 ***********************
 
-Greynir is *copyright © 2022* by `Miðeind ehf. <https://mideind.is>`__.
+Icegrams is Copyright © 2022 `Miðeind ehf. <https://mideind.is>`__.
 The original author of this software is *Vilhjálmur Þorsteinsson*.
 
 This software is licensed under the **MIT License**:
