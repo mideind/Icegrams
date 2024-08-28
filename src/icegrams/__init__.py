@@ -33,10 +33,11 @@
 
 """
 
-# Expose the icegrams API
-
-from .ngrams import Ngrams, MAX_ORDER  # type: ignore
+import importlib.metadata
 
 __author__ = "Miðeind ehf."
-__copyright__ = "(C) 2024 Miðeind ehf."
-__version__ = "1.1.2"
+__copyright__ = "(C) 2020-2024 Miðeind ehf."
+__version__ = importlib.metadata.version("icegrams")
+
+# Expose the icegrams API
+from .ngrams import Ngrams, MAX_ORDER

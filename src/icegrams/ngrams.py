@@ -143,7 +143,7 @@ if TYPE_CHECKING:
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
-elif __name__ == "__main__":
+if __name__ == "__main__":
     # Running as a main program
     from _trie import lib as trie_cffi, ffi  # type: ignore  # pylint: disable=import-error
     from trie import Trie
@@ -155,12 +155,10 @@ else:
 
     # Make sure that the trigrams.bin file is
     # unpacked and ready for use
-    import pkg_resources
+    import importlib.resources as importlib_resources
 
-    # Note: the resource path below should NOT use os.path.join()
-    BINARY_FILENAME = pkg_resources.resource_filename(  # type: ignore
-        __name__, "resources/trigrams.bin"
-    )
+    ref = importlib_resources.files("icegrams").joinpath("resources", "trigrams.bin")
+    BINARY_FILENAME = str(ref)
 
 ffi: Any = cast(Any, ffi)  # type: ignore
 trie_cffi: Any = cast(Any, trie_cffi)  # type: ignore
@@ -384,8 +382,9 @@ class MonotonicList(BaseList):
         # (usually a memoryview() object)
         self.b = b
         self.ffi_b: Optional[bytes] = (
-            None if b is None else
-            ffi.cast("uint8_t*", ffi.from_buffer(b))  # type: ignore
+            None
+            if b is None
+            else ffi.cast("uint8_t*", ffi.from_buffer(b))  # type: ignore
         )
         self.n = 0
         self.u = 0
@@ -533,7 +532,9 @@ class MonotonicList(BaseList):
         """Look for i in the range [p1, p2> within the list"""
         if self.ffi_b is None:
             raise ValueError("Search not allowed in uncompressed list")
-        r = cast(int, trie_cffi.searchMonotonic(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i))
+        r = cast(
+            int, trie_cffi.searchMonotonic(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
+        )
         return None if r == 0xFFFFFFFF else r
 
     def search_prefix(self, p1: int, p2: int, i: int) -> Optional[int]:
@@ -864,8 +865,8 @@ class NgramStorage:
         if i0 is None or i1 is None:
             return 0
         # Check degenerate case
-        #if not (i0 or i1):
-        #    return 0
+        if not (i0 or i1):
+            return 0
         assert self._unigram_ptrs_ml is not None
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
@@ -1000,7 +1001,9 @@ class NgramStorage:
         result = sorted(result, key=lambda e: e[1], reverse=True)[0:n]
         return [(self.id_to_word(j), lp) for j, lp in result]
 
-    def bigram_succ(self, n: int, i0: Optional[int], i1: Optional[int]) -> List[Tuple[str, float]]:
+    def bigram_succ(
+        self, n: int, i0: Optional[int], i1: Optional[int]
+    ) -> List[Tuple[str, float]]:
         """Return successors to the bigram (i0, i1)"""
         if i0 is None or i1 is None:
             return []
@@ -1084,9 +1087,7 @@ class NgramStorage:
                     vocab[to_bytes(w2)] += 1
         # Trie that maps unigrams to integer identifiers
         using_empty = b"" in vocab
-        trie: Any = Trie(
-            reserve_zero_for_empty=using_empty
-        )
+        trie: Any = Trie(reserve_zero_for_empty=using_empty)
         # Dict to map words to integer ids
         ids = {b"": 0} if using_empty else {}
         # Build the trie in decreasing order of occurrences, ensuring that

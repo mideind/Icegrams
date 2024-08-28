@@ -44,9 +44,9 @@ import cffi
 # change it in setup.py as well
 ffibuilder = cffi.FFI()
 
-_PATH = os.path.dirname(__file__) or "."
 WINDOWS = platform.system() == "Windows"
 MACOS = platform.system() == "Darwin"
+IMPLEMENTATION = platform.python_implementation()
 
 # What follows is the actual Python-wrapped C interface to trie.*.so
 # It must be kept in sync with trie.h
@@ -100,11 +100,17 @@ if WINDOWS:
     extra_compile_args = ["/Zc:offsetof-"]
 elif MACOS:
     os.environ["CFLAGS"] = "-stdlib=libc++"  # Fixes PyPy build on macOS 10.15.6+
+    os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
     extra_compile_args = ["-mmacosx-version-min=10.7", "-stdlib=libc++"]
 else:
     # Adding -O3 to the compiler arguments doesn't seem to make
     # any discernible difference in lookup speed
     extra_compile_args = ["-std=c++11"]
+
+# On some systems, the linker needs to be told to use the C++ compiler
+# under PyPy due to changes in the default behaviour of distutils.
+if IMPLEMENTATION == "PyPy":
+    os.environ["LDCXXSHARED"] = "c++ -shared"
 
 ffibuilder.set_source(
     "icegrams._trie",
@@ -120,4 +126,3 @@ ffibuilder.cdef(declarations)
 
 if __name__ == "__main__":
     ffibuilder.compile(verbose=False)
-
