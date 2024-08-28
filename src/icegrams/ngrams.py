@@ -143,7 +143,7 @@ if TYPE_CHECKING:
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
-elif __name__ == "__main__":
+if __name__ == "__main__":
     # Running as a main program
     from _trie import lib as trie_cffi, ffi  # type: ignore  # pylint: disable=import-error
     from trie import Trie
@@ -157,7 +157,7 @@ else:
     # unpacked and ready for use
     import importlib.resources as importlib_resources
 
-    ref = importlib_resources.files("icegrams").joinpath("resources/trigrams.bin")
+    ref = importlib_resources.files("icegrams").joinpath("resources", "trigrams.bin")
     BINARY_FILENAME = str(ref)
 
 ffi: Any = cast(Any, ffi)  # type: ignore
@@ -865,8 +865,8 @@ class NgramStorage:
         if i0 is None or i1 is None:
             return 0
         # Check degenerate case
-        # if not (i0 or i1):
-        #    return 0
+        if not (i0 or i1):
+            return 0
         assert self._unigram_ptrs_ml is not None
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
