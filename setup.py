@@ -5,7 +5,7 @@
 
     setup.py
 
-    Copyright (C) 2020 Miðeind ehf.
+    Copyright (C) 2024 Miðeind ehf.
     Author: Vilhjálmur Þorsteinsson
 
     This software is licensed under the MIT License:
@@ -39,6 +39,8 @@
 
 """
 
+from typing import Any
+
 import io
 import re
 import sys
@@ -46,7 +48,7 @@ import sys
 from glob import glob
 from os.path import basename, dirname, join, splitext
 
-from setuptools import find_packages, setup  # type: ignore
+from setuptools import find_packages, setup
 
 
 if sys.version_info < (3, 7):
@@ -54,7 +56,7 @@ if sys.version_info < (3, 7):
     sys.exit(1)
 
 
-def read(*names, **kwargs):
+def read(*names: Any, **kwargs: Any):
     try:
         return io.open(
             join(dirname(__file__), *names), encoding=kwargs.get("encoding", "utf8")

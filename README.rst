@@ -153,8 +153,8 @@ The Ngrams class
   * ``str[] *args`` A parameter sequence of consecutive unigrams
     to query the frequency for.
   * **returns** An integer with the adjusted frequency of the unigram,
-    bigram or trigram. The adjusted frequency is the actual
-    frequency plus 1. The method thus never returns 0.
+    bigram or trigram. *The adjusted frequency is the actual*
+    *frequency plus 1.* The method thus never returns 0.
 
   To query for the frequency of a unigram in the text, call
   ``ng.adj_freq("unigram1")``. This returns the number of times that
@@ -319,7 +319,7 @@ to placeholder strings, see the
 Prerequisites
 *************
 
-This package runs on CPython 3.6 or newer, and on PyPy 3.6 or newer. It
+This package runs on CPython 3.7 or newer, and on PyPy 3.7 or newer. It
 has been tested on Linux (gcc on x86-64 and ARMhf), MacOS (clang) and
 Windows (MSVC).
 
@@ -375,7 +375,7 @@ Changelog
 Copyright and licensing
 ***********************
 
-Icegrams is Copyright © 2022 `Miðeind ehf. <https://mideind.is>`__.
+Icegrams is Copyright © 2024 `Miðeind ehf. <https://mideind.is>`__.
 The original author of this software is *Vilhjálmur Þorsteinsson*.
 
 This software is licensed under the **MIT License**:

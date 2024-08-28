@@ -4,7 +4,7 @@
 
     __init__.py
 
-    Copyright (C) 2020 Miðeind ehf.
+    Copyright (C) 2024 Miðeind ehf.
     Original author: Vilhjálmur Þorsteinsson
 
     This software is licensed under the MIT License:
@@ -35,8 +35,8 @@
 
 # Expose the icegrams API
 
-from .ngrams import Ngrams, MAX_ORDER
+from .ngrams import Ngrams, MAX_ORDER  # type: ignore
 
 __author__ = "Miðeind ehf."
-__copyright__ = "(C) 2020 Miðeind ehf."
+__copyright__ = "(C) 2024 Miðeind ehf."
 __version__ = "1.1.2"

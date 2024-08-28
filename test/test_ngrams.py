@@ -93,6 +93,7 @@ def test_partitioned_list():
 
 def test_trigrams():
     n = Ngrams()
+    assert n.prob("", "", "Í") < 1.0
     assert n.freq("hundurinn", "át", "heimaverkefnið") == 4
     assert n.adj_freq("xxx", "yyy", "zzz") == 1
     assert n.adj_freq("Hann", "var", "zzz") == 1
@@ -105,11 +106,11 @@ def test_trigrams():
     assert n.freq("Katrín", "Jakobsdóttir") > 6000
     assert n.adj_freq("velta", "fyrirtækisins", "er") >= 5
 
-    assert "Jakobsdóttir" in set(u for u, lp in n.succ(10, "Katrín"))
-    assert "Gunnarsdóttir" in set(u for u, lp in n.succ(10, "Þorgerður", "Katrín"))
-    assert "Þorsteinsson" in set(u for u, lp in n.succ(20, "Vilhjálmur"))
-    assert "atkvæði" in set(u for u, lp in n.succ(20, "greiddi", "því"))
-    assert "heimaverkefnið" in set(u for u, lp in n.succ(20, "hundurinn", "át"))
+    assert "Jakobsdóttir" in set(u for u, _ in n.succ(10, "Katrín"))
+    assert "Gunnarsdóttir" in set(u for u, _ in n.succ(10, "Þorgerður", "Katrín"))
+    assert "Þorsteinsson" in set(u for u, _ in n.succ(20, "Vilhjálmur"))
+    assert "atkvæði" in set(u for u, _ in n.succ(20, "greiddi", "því"))
+    assert "heimaverkefnið" in set(u for u, _ in n.succ(20, "hundurinn", "át"))
 
 
 def test_word_ids():

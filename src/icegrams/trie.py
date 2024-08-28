@@ -4,7 +4,7 @@
 
     trie.py
 
-    Copyright (C) 2020 Miðeind ehf.
+    Copyright (C) 2024 Miðeind ehf.
     Original author: Vilhjálmur Þorsteinsson
 
     This software is licensed under the MIT License:
@@ -37,9 +37,8 @@
 
 """
 
-from typing import Optional, IO, List
+from typing import BinaryIO, Optional, List, Tuple
 from collections import deque
-from heapq import heappush, heappop, heapify
 import struct
 
 
@@ -59,7 +58,7 @@ class _Node:
         self.fragment = fragment
         self.value = value
         # List of outgoing nodes
-        self.children = None  # type: Optional[List[_Node]]
+        self.children: Optional[List[_Node]] = None
 
     def add(self, fragment: bytes, value: int) -> Optional[int]:
         """ Add the given remaining key fragment to this node """
@@ -78,7 +77,7 @@ class _Node:
             return None
 
         # Check whether we need to take existing child nodes into account
-        lo = 0
+        lo = mid = 0
         hi = len(self.children)
         ch = fragment[0]
         while hi > lo:
@@ -235,10 +234,10 @@ class Trie:
             including the empty string sentinel that has the value 0 """
         return self._cnt
 
-    def write(self, f: IO, *, verbose: bool=False) -> None:
+    def write(self, f: BinaryIO, *, verbose: bool=False) -> None:
         """ Write the unigram trie contents to a packed binary stream """
         # We assume that the alphabet can be represented in 7 bits
-        todo = deque()  # type: deque
+        todo: deque[Tuple[_Node, int]] = deque()
         node_cnt = 0
         single_char_node_count = 0
         multi_char_node_count = 0
