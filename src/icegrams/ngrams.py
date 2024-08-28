@@ -155,12 +155,10 @@ else:
 
     # Make sure that the trigrams.bin file is
     # unpacked and ready for use
-    import pkg_resources
+    import importlib.resources as importlib_resources
 
-    # Note: the resource path below should NOT use os.path.join()
-    BINARY_FILENAME = pkg_resources.resource_filename(  # type: ignore
-        __name__, "resources/trigrams.bin"
-    )
+    ref = importlib_resources.files("icegrams").joinpath("resources/trigrams.bin")
+    BINARY_FILENAME = str(ref)
 
 ffi: Any = cast(Any, ffi)  # type: ignore
 trie_cffi: Any = cast(Any, trie_cffi)  # type: ignore
