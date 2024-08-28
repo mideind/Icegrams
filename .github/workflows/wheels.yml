@@ -33,6 +33,7 @@ jobs:
         env:
           CIBW_SKIP: cp36-* cp37-* cp38-* *pp37-* pp38-* *musllinux*
           CIBW_BEFORE_BUILD_MACOS: python3 -m pip install --upgrade setuptools wheel cffi packaging
+          CIBW_BEFORE_BUILD_WINDOWS: python3 -m pip install --upgrade setuptools wheel cffi packaging
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_ARCHS_LINUX: "x86_64"
