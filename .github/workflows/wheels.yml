@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-12, ubuntu-latest, windows-latest]
+        os: [macos-12, ubuntu-latest, windows-2019]
 
     steps:
       # Check out repository using git-lfs
@@ -32,7 +32,8 @@ jobs:
         # Options (https://cibuildwheel.readthedocs.io/en/stable/options/)
         env:
           CIBW_SKIP: cp36-* cp37-* cp38-* *pp37-* pp38-* *musllinux*
-          CIBW_BEFORE_ALL: python3 -m pip install --upgrade pip wheel distutils setuptools cffi packaging
+          CIBW_BEFORE_BUILD_MACOS: python3 -m pip install --upgrade pip wheel setuptools cffi packaging
+          CIBW_BEFORE_BUILD_WINDOWS: python3 -m pip install --upgrade pip wheel setuptools cffi packaging
           CIBW_ARCHS_MACOS: "x86_64 arm64"
           CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_ARCHS_LINUX: "x86_64"
