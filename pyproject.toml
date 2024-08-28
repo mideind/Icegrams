@@ -31,7 +31,7 @@ classifiers = [
 ]
 keywords = ["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"]
 requires-python = ">=3.9"
-dependencies = ["cffi>=1.15.1"]
+dependencies = ["cffi>=1.15.1", "setuptools", "wheel"]
 
 [project.urls]
 Repository = "https://github.com/mideind/Icegrams"
