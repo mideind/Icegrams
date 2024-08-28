@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
+
+from typing import Any
+
 import re
 import io
 from glob import glob
 from os.path import basename, splitext, dirname, join
 
-from setuptools import find_packages, setup  # type: ignore
+from setuptools import find_packages, setup
 
 
 def read(*names, **kwargs):

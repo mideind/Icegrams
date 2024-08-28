@@ -153,8 +153,8 @@ The Ngrams class
   * ``str[] *args`` A parameter sequence of consecutive unigrams
     to query the frequency for.
   * **returns** An integer with the adjusted frequency of the unigram,
-    bigram or trigram. The adjusted frequency is the actual
-    frequency plus 1. The method thus never returns 0.
+    bigram or trigram. *The adjusted frequency is the actual*
+    *frequency plus 1.* The method thus never returns 0.
 
   To query for the frequency of a unigram in the text, call
   ``ng.adj_freq("unigram1")``. This returns the number of times that

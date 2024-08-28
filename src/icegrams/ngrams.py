@@ -4,7 +4,7 @@
 
     ngrams.py
 
-    Copyright (C) 2020 Miðeind ehf.
+    Copyright (C) 2024 Miðeind ehf.
     Original author: Vilhjálmur Þorsteinsson
 
     This software is licensed under the MIT License:
@@ -114,7 +114,6 @@ from typing import (
     Dict,
     Tuple,
     Set,
-    Sized,
     Iterable,
     Optional,
     Any,
@@ -136,6 +135,7 @@ import gzip
 
 _PATH = os.path.dirname(__file__) or "."
 TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
+BINARY_FILENAME = ""
 
 if TYPE_CHECKING:
     # When running mypy, we must import Trie in a way that makes it happy
@@ -143,24 +143,27 @@ if TYPE_CHECKING:
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
-if __name__ == "__main__":
+elif __name__ == "__main__":
     # Running as a main program
     from _trie import lib as trie_cffi, ffi  # type: ignore  # pylint: disable=import-error
-    from trie import Trie  # type: ignore
+    from trie import Trie
 
-    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
+    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")  # type: ignore
 else:
     # Imported as a package
     from ._trie import lib as trie_cffi, ffi  # type: ignore  # pylint: disable=import-error,no-name-in-module
 
     # Make sure that the trigrams.bin file is
     # unpacked and ready for use
-    import importlib.resources as importlib_resources
-
-    ref = importlib_resources.files("icegrams").joinpath("resources/trigrams.bin")
+    import pkg_resources
 
     # Note: the resource path below should NOT use os.path.join()
-    BINARY_FILENAME = str(ref)
+    BINARY_FILENAME = pkg_resources.resource_filename(  # type: ignore
+        __name__, "resources/trigrams.bin"
+    )
+
+ffi: Any = cast(Any, ffi)  # type: ignore
+trie_cffi: Any = cast(Any, trie_cffi)  # type: ignore
 
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
@@ -201,7 +204,7 @@ class Ngrams:
     trigrams."""
 
     def __init__(self) -> None:
-        self.ngrams = NgramStorage()
+        self.ngrams: NgramStorage = NgramStorage()
         self.ngrams.load(BINARY_FILENAME)
 
     def __contains__(self, word: str) -> bool:
@@ -241,12 +244,12 @@ class Ngrams:
             raise ValueError("Must provide at least one string argument")
         return math.exp(self.logprob(*args))
 
-    def succ(self, n, *args: str) -> List[Tuple[str, float]]:
+    def succ(self, n: int, *args: str) -> List[Tuple[str, float]]:
         """Returns a sorted list of length <= n with the most likely
         successors to the words given, in descending order of
         log probability. The list consists of tuples of
         (word, log probability)."""
-        if not isinstance(n, int) or n < 1:
+        if n < 1:
             raise TypeError("Expected positive integer for parameter n")
         if not args:
             raise ValueError("Must provide at least one string argument")
@@ -273,7 +276,7 @@ class BitArray:
         # The number of bits currently in self.buf
         self.bits = 0
         # The total number of bits stored
-        self.length = None  # type: Optional[int]
+        self.length: Optional[int] = None
 
     def num_bits(self) -> int:
         """Return the total number of bits written to the byte array"""
@@ -380,7 +383,11 @@ class MonotonicList(BaseList):
         # If b is given, it should be a byte buffer of some sort
         # (usually a memoryview() object)
         self.b = b
-        self.ffi_b = None if b is None else ffi.cast("uint8_t*", ffi.from_buffer(b))
+        self.ffi_b: Optional[bytes] = (
+            None
+            if b is None
+            else ffi.cast("uint8_t*", ffi.from_buffer(b))  # type: ignore
+        )
         self.n = 0
         self.u = 0
         self.low_bits = 0
@@ -488,7 +495,7 @@ class MonotonicList(BaseList):
         if frag:
             parts.append(b"\x00" * (4 - frag))
         self.b = b"".join(parts)
-        self.ffi_b = ffi.cast("uint8_t*", ffi.from_buffer(self.b))
+        self.ffi_b = ffi.cast("uint8_t*", ffi.from_buffer(self.b))  # type: ignore
 
     def to_bytes(self) -> bytes:
         """Return a bytes object containing the compressed list"""
@@ -514,20 +521,22 @@ class MonotonicList(BaseList):
         """Returns the integer at index ix within the sequence"""
         if self.ffi_b is None:
             raise ValueError("Lookup not allowed from uncompressed list")
-        return trie_cffi.lookupMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix)
+        return trie_cffi.lookupMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix)  # type: ignore
 
     def lookup_pair(self, ix: int) -> Tuple[int, int]:
         """Return the pair of values at [ix] and [ix+1]"""
-        p1 = ffi.new("uint64_t*")
-        p2 = ffi.new("uint64_t*")
-        trie_cffi.lookupPairMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix, p1, p2)
+        p1: List[int] = ffi.new("uint64_t*")
+        p2: List[int] = ffi.new("uint64_t*")
+        trie_cffi.lookupPairMonotonic(self.ffi_b, self.QUANTUM_SIZE, ix, p1, p2)  # type: ignore
         return p1[0], p2[0]
 
     def search(self, p1: int, p2: int, i: int) -> Optional[int]:
         """Look for i in the range [p1, p2> within the list"""
         if self.ffi_b is None:
             raise ValueError("Search not allowed in uncompressed list")
-        r = trie_cffi.searchMonotonic(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
+        r = cast(
+            int, trie_cffi.searchMonotonic(self.ffi_b, self.QUANTUM_SIZE, p1, p2, i)
+        )
         return None if r == 0xFFFFFFFF else r
 
     def search_prefix(self, p1: int, p2: int, i: int) -> Optional[int]:
@@ -560,17 +569,17 @@ class PartitionedMonotonicList(BaseList):
         the first items of the sublists."""
 
         # The upper level list
-        chunks = []
+        chunks: List[int] = []
         # The byte offsets of the lower-level lists
-        chunk_index = [0]
+        chunk_index: List[int] = [0]
         # The current prefix to be subtracted from each
         # sublist item, i.e. the value of the first
         # item in the current sublist
         prefix = 0
         # The current sublist
-        sq = []  # type: List[int]
+        sq: List[int] = []
         # The accumulated compressed sublists
-        buf = []  # type: List[bytes]
+        buf: List[bytes] = []
         # The number of sublist bytes accumulated so far
         buf_size = 0
         # The compressor object
@@ -680,7 +689,7 @@ class _Level:
 
     def __init__(self, depth: int) -> None:
         self.cnt = 0
-        self.d = None  # type: Optional[Dict[int, _Level]]
+        self.d: Optional[Dict[int, _Level]] = None
         if depth < MAX_ORDER:
             self.d = defaultdict(lambda: _Level(depth + 1))
 
@@ -728,18 +737,19 @@ class NgramStorage:
     _NUM_HEADERS = len(_HEADERS)
 
     def __init__(self) -> None:
-        self.trie = None  # type: Optional[Trie]
+        self.trie: Optional[Trie] = None
         self.log_ucnt = 0.0
+        self._number_of_sentences: Optional[int] = None
         # A dictionary of frequency buckets in ascending order
-        self.freqs = None  # type: Optional[List[List[int]]]
-        self.fbuckets = None  # type: Optional[Dict[int, Dict[int, int]]]
+        self.freqs: Optional[List[List[int]]] = None
+        self.fbuckets: Optional[Dict[int, Dict[int, int]]] = None
         # Level 0 of the trigram tree
-        self.level0 = None  # type: Optional[_Level]
-        self.vocab_size = 0
-        self.compressed_vocab = None  # type: Optional[bytes]
+        self.level0: Optional[_Level] = None
+        self.vocab_size: int = 0
+        self.compressed_vocab: Optional[bytes] = None
         # Memory mapped binary buffer
-        self._b = None  # type: Optional[mmap.mmap]
-        self._mmap_buffer = None
+        self._b: Optional[mmap.mmap] = None
+        self._mmap_buffer: Optional[mmap.mmap] = None
         # File offsets of various parts
         self._trie = bytes()
         self._freqs = bytes()
@@ -762,6 +772,19 @@ class NgramStorage:
         causing (w1, w2) to be implicitly added."""
         self.read_tsv(tsv_filename, add_all_bigrams=add_all_bigrams)
         self.write_binary(binary_filename)
+
+    def number_of_sentences(self) -> int:
+        """Return the number of sentences in the trigram store,
+        or in other words the sum of the frequencies of the successors
+        of the empty ("") unigram"""
+        assert self._unigram_ptrs_ml is not None
+        p1, p2 = self._unigram_ptrs_ml.lookup_pair(0)  # Id 0 = ""
+        if p1 >= p2:
+            return 0
+        n = 0
+        for i in range(p1, p2):
+            n += self.lookup_frequency(2, self._bigram_freqs, i)
+        return n
 
     def word_to_id(self, word: str) -> Optional[int]:
         """Obtain the unigram id for the given word by
@@ -819,7 +842,7 @@ class NgramStorage:
         if index is None:
             return 0
         buf = ffi.from_buffer(b)
-        rank = trie_cffi.lookupFrequency(
+        rank: int = trie_cffi.lookupFrequency(
             ffi.cast("uint8_t*", buf), self.FREQ_QUANTUM_SIZE, index
         )
         # ...and finally retrieve the actual frequency
@@ -844,10 +867,12 @@ class NgramStorage:
         if i0 is None or i1 is None:
             return 0
         # Check degenerate case
-        if not (i0 or i1):
-            return 0
+        # if not (i0 or i1):
+        #    return 0
+        assert self._unigram_ptrs_ml is not None
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
+        assert self._bigram_pl is not None
         i = self._bigram_pl.search_prefix(p1, p2, i1)
         return self.lookup_frequency(2, self._bigram_freqs, i)
 
@@ -855,9 +880,18 @@ class NgramStorage:
         """Return the log of the probability of the bigram
         consisting of vocabulary indices i0 and i1,
         relative to the unigram frequency of i0"""
-        return math.log(self.bigram_frequency(i0, i1) + 1) - math.log(
-            self.unigram_frequency(i0) + 1
-        )
+        bgf = self.bigram_frequency(i0, i1)
+        if i0 == 0:
+            # This is (0, w1): use the number of sentences as the
+            # denominator, not the number of occurrences of ""
+            # (since "" occurs both at the start and at the end of sentences)
+            if self._number_of_sentences is None:
+                # Calculate and cache the number of sentences
+                self._number_of_sentences = self.number_of_sentences()
+            ugf = self._number_of_sentences
+        else:
+            ugf = self.unigram_frequency(i0)
+        return math.log(bgf + 1) - math.log(ugf + 1)
 
     def trigram_frequency(
         self, i0: Optional[int], i1: Optional[int], i2: Optional[int]
@@ -877,12 +911,15 @@ class NgramStorage:
         if not (i1 or i2):
             # This is (w2, 0, 0): lookup (w2, 0) instead
             return self.bigram_frequency(i0, i1)
+        assert self._unigram_ptrs_ml is not None
+        assert self._bigram_pl is not None
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         # Then, look for id i1 within the level 2 ids delimited by [p1, p2>
         i = self._bigram_pl.search_prefix(p1, p2, i1)
         if i is None:
             # Not found
             return 0
+        assert self._bigram_ptrs_ml is not None
         p1, p2 = self._bigram_ptrs_ml.lookup_pair(i)
         if p1 >= p2:
             return 0
@@ -894,6 +931,7 @@ class NgramStorage:
             # This can happen if (i0, i1) is present but (i1, i2)
             # is not. In this case, (i0, i1, i2) is not found.
             return 0
+        assert self._trigram_pl is not None
         i = self._trigram_pl.search_prefix(p1, p2, remapped_id - q1)
         return self.lookup_frequency(3, self._trigram_freqs, i)
 
@@ -903,15 +941,21 @@ class NgramStorage:
         """Return the log of the probability of the trigram
         consisting of vocabulary indices i0, i1 and i2,
         relative to the bigram of i0 and i1"""
-        return math.log(self.trigram_frequency(i0, i1, i2) + 1) - math.log(
-            self.bigram_frequency(i0, i1) + 1
-        )
+        if i0 == 0 and i1 == 0 and (i2 is not None and i2 != 0):
+            # This is (0, 0, w2): lookup (0, w2) instead
+            return self.bigram_logprob(i1, i2)
+        if (i0 is not None and i0 != 0) and i1 == 0 and i2 == 0:
+            # This is (w2, 0, 0): lookup (w2, 0) instead
+            return self.bigram_logprob(i0, i1)
+        tgf = self.trigram_frequency(i0, i1, i2)
+        bgf = self.bigram_frequency(i0, i1)
+        return math.log(tgf + 1) - math.log(bgf + 1)
 
-    _FREQ_DISPATCH = {
+    _FREQ_DISPATCH: Dict[int, Callable[..., int]] = {
         1: unigram_frequency,
         2: bigram_frequency,
         3: trigram_frequency,
-    }  # type: Dict[int, Callable[..., int]]
+    }
 
     def freq(self, *args: str) -> int:
         """Return the frequency of the n-gram given in *args, where
@@ -924,11 +968,11 @@ class NgramStorage:
             args = args[-MAX_ORDER:]
         return self._FREQ_DISPATCH[len(args)](self, *self.indices(*args))
 
-    _PROB_DISPATCH = {
+    _PROB_DISPATCH: Dict[int, Callable[..., float]] = {
         1: unigram_logprob,
         2: bigram_logprob,
         3: trigram_logprob,
-    }  # type: Dict[int, Callable[..., float]]
+    }
 
     def logprob(self, *args: str) -> float:
         """Return the log of the approximate probability
@@ -940,15 +984,17 @@ class NgramStorage:
             args = args[-MAX_ORDER:]
         return self._PROB_DISPATCH[len(args)](self, *self.indices(*args))
 
-    def unigram_succ(self, n: int, i0: int) -> List[Tuple[str, float]]:
+    def unigram_succ(self, n: int, i0: Optional[int]) -> List[Tuple[str, float]]:
         """Return successors to the unigram whose id is in i0"""
         if i0 is None:
             return []
+        assert self._unigram_ptrs_ml is not None
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         if p1 >= p2:
             return []
         lp0 = math.log(self.lookup_frequency(1, self._unigram_freqs, i0) + 1)
-        result = []
+        result: List[Tuple[int, float]] = []
+        assert self._bigram_pl is not None
         prefix_sum = 0 if p1 == 0 else self._bigram_pl.lookup(p1 - 1)
         for i in range(p1, p2):
             j = self._bigram_pl.lookup(i) - prefix_sum
@@ -957,17 +1003,22 @@ class NgramStorage:
         result = sorted(result, key=lambda e: e[1], reverse=True)[0:n]
         return [(self.id_to_word(j), lp) for j, lp in result]
 
-    def bigram_succ(self, n: int, i0: int, i1: int) -> List[Tuple[str, float]]:
+    def bigram_succ(
+        self, n: int, i0: Optional[int], i1: Optional[int]
+    ) -> List[Tuple[str, float]]:
         """Return successors to the bigram (i0, i1)"""
         if i0 is None or i1 is None:
             return []
+        assert self._unigram_ptrs_ml is not None
         p1, p2 = self._unigram_ptrs_ml.lookup_pair(i0)
         if p1 >= p2:
             return []
+        assert self._bigram_pl is not None
         i = self._bigram_pl.search_prefix(p1, p2, i1)
         if i is None:
             # Not found
             return []
+        assert self._bigram_ptrs_ml is not None
         p1, p2 = self._bigram_ptrs_ml.lookup_pair(i)
         if p1 >= p2:
             return []
@@ -976,7 +1027,8 @@ class NgramStorage:
         prefix_sum_bi = self._bigram_pl.lookup(q1 - 1) if q1 > 0 else 0
         # Cache the bigram frequency of (i0, i1)
         lp0 = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
-        result = []
+        result: List[Tuple[int, float]] = []
+        assert self._trigram_pl is not None
         prefix_sum_tri = self._trigram_pl.lookup(p1 - 1) if p1 > 0 else 0
         for i in range(p1, p2):
             # trigram[i] is a remapped id, i.e. it's an offset
@@ -988,10 +1040,10 @@ class NgramStorage:
         result = sorted(result, key=lambda e: e[1], reverse=True)[0:n]
         return [(self.id_to_word(j), lp) for j, lp in result]
 
-    _SUCC_DISPATCH = {
+    _SUCC_DISPATCH: Dict[int, Callable[..., List[Tuple[str, float]]]] = {
         1: unigram_succ,
         2: bigram_succ,
-    }  # type: Dict[int, Callable[..., List[Tuple[str, float]]]]
+    }
 
     def succ(self, n: int, *args: str) -> List[Tuple[str, float]]:
         """Return a list of likely successors to the words
@@ -1010,7 +1062,7 @@ class NgramStorage:
         # First pass: obtain the unigram vocabulary and count how many
         # times each unigram occurs. Note that this number is not the
         # same as the n-gram frequency count.
-        vocab = defaultdict(int)  # type: Dict[bytes, int]
+        vocab: Dict[bytes, int] = defaultdict(int)
         cnt = 0
         with open(fname, "r", encoding="utf-8") as f:
             for line in f:
@@ -1037,9 +1089,7 @@ class NgramStorage:
                     vocab[to_bytes(w2)] += 1
         # Trie that maps unigrams to integer identifiers
         using_empty = b"" in vocab
-        trie = Trie(
-            reserve_zero_for_empty=using_empty
-        )  # pylint: disable=used-before-assignment
+        trie: Any = Trie(reserve_zero_for_empty=using_empty)
         # Dict to map words to integer ids
         ids = {b"": 0} if using_empty else {}
         # Build the trie in decreasing order of occurrences, ensuring that
@@ -1056,7 +1106,7 @@ class NgramStorage:
                 pass
             else:
                 assert w
-                trie_ix = trie.add(w)
+                trie_ix = cast(int, trie.add(w))
                 # Make sure that everything is synced up
                 assert trie_ix == unigram_id
                 ids[w] = trie_ix
@@ -1188,7 +1238,7 @@ class NgramStorage:
                         cut += 1
             print("Cut out {0:,} trigrams with two blanks".format(cut))
 
-        self.trie = trie
+        self.trie = cast(Trie, trie)
         self.vocab_size = len(trie)
         level0.cnt = ucnt
         self.level0 = level0
@@ -1199,9 +1249,9 @@ class NgramStorage:
         self.log_ucnt = math.log(ucnt + 1)
 
         # Collect frequency buckets
-        freqs = defaultdict(set)  # type: Dict[int, Set[int]]
+        freqs: Dict[int, Set[int]] = defaultdict(set)
 
-        def count_level(depth, level):
+        def count_level(depth: int, level: _Level) -> None:
             freqs[depth].add(level.cnt)
             if level.d:
                 for _, v in level.d.items():
@@ -1277,23 +1327,23 @@ class NgramStorage:
         bi_freqs = self.fbuckets[2]
         tri_freqs = self.fbuckets[3]
         # Zero the pointer list (only at the bigram level)
-        ptrs = []
+        ptrs: List[int] = []
         # Zero the running bigram->trigram pointer index
         ix = 0
         # Zero the id lists
-        bi_ids = []
-        tri_ids = []
+        bi_ids: List[int] = []
+        tri_ids: List[int] = []
         # Zero the running prefix sum for the ids
         bi_prefix_sum = 0
         tri_prefix_sum = 0
         # Zero the frequency lists
-        bi_fqs = []
-        tri_fqs = []
+        bi_fqs: List[int] = []
+        tri_fqs: List[int] = []
 
         # Keep a cache of sorted children of top-level
         # unigrams, i.e. a list of (w0, w1) sorted by w1
         # for each w0
-        sorted_child_cache = dict()  # type: Dict[int, List[int]]
+        sorted_child_cache: Dict[int, List[int]] = dict()
 
         def sorted_child_ids(w0: int) -> List[int]:
             try:
@@ -1316,7 +1366,7 @@ class NgramStorage:
             assert level0 is not None
             assert level0.d is not None
             p = level0.d[w0]
-            if p is not None and p.d:
+            if p.d:
                 # Sort the bigrams that start with the unigram w0
                 bids = sorted_child_ids(w0)
                 # ...and append them to our id list
@@ -1404,8 +1454,8 @@ class NgramStorage:
         """Write an array containing frequency ranks in a minimal number of bits"""
         # Create a dictionary of code words for each frequency rank,
         # using the fewest bits for the most frequent ranks
-        codebook = dict()  # type: Dict[int, Tuple[int, int]]
-        cnt = defaultdict(int)  # type: Dict[int, int]
+        codebook: Dict[int, Tuple[int, int]] = dict()
+        cnt: Dict[int, int] = defaultdict(int)
         # Count the frequency ranks
         for fqr in freq_ranks:
             cnt[fqr] += 1
@@ -1425,7 +1475,7 @@ class NgramStorage:
         # Pack the start bits into another bit array
         startbits = BitArray()
         # Note the start bit position every FREQ_QUANTUM_SIZE items
-        freq_index = []
+        freq_index: List[int] = []
         for ix, fqr in enumerate(freq_ranks):
             if ix % self.FREQ_QUANTUM_SIZE == 0 and ix > 0:
                 freq_index.append(startbits.num_bits())
@@ -1471,9 +1521,18 @@ class NgramStorage:
         # initialized from the _HEADERS tuple. Each header
         # field is a pointer to a major section of the file.
         class Headers:
-            pass
+            freqs_offset: int
+            trie_offset: int
+            unigram_ptrs_offset: int
+            unigram_freqs_offset: int
+            bigrams_offset: int
+            bigram_freqs_offset: int
+            bigram_ptrs_offset: int
+            trigrams_offset: int
+            trigram_freqs_offset: int
+            vocab_offset: int
 
-        h = Headers()  # type: Any
+        h = Headers()
 
         for hdr in self._HEADERS:
             # Associate a field of h with a file offset which
@@ -1614,10 +1673,10 @@ class NgramStorage:
         # Load the freqs rank list into memory
         self.freqs = []
         loc = 0
-        for level in range(MAX_ORDER + 1):  # pylint: disable=unused-variable
+        for _ in range(MAX_ORDER + 1):
             num = UINT32.unpack_from(self._freqs, loc)[0]
             loc += 4
-            fql = []
+            fql: List[int] = []
             for _ in range(num):
                 fql.append(UINT32.unpack_from(self._freqs, loc)[0])
                 loc += 4

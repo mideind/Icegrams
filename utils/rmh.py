@@ -5,7 +5,7 @@
 
     utils/rmh.py
 
-    Copyright (C) 2020 Miðeind ehf
+    Copyright (C) 2024 Miðeind ehf
 
     This software is licensed under the MIT License:
 
@@ -44,7 +44,6 @@ from typing import (
 import os
 import sys
 from itertools import islice, tee
-import collections
 import argparse
 import glob
 import random

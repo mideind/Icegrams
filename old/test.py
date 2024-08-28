@@ -1,5 +1,6 @@
 
-import sys
+from typing import List, Tuple
+
 import time
 from random import randrange
 import icegrams
@@ -9,7 +10,8 @@ n = icegrams.Ngrams()
 
 FILENAME=os.path.join("src", "icegrams", "resources", "trigrams-subset.tsv")
 
-d = []
+d: List[Tuple[Tuple[str, ...], int]] = []
+
 with open(FILENAME, encoding="utf-8") as f:
     for line in f:
         tg = line.rstrip().split()
