@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-12, ubuntu-latest] # windows-2019
+        os: [macos-latest, ubuntu-latest] # windows-2019
 
     steps:
       # Check out repository using git-lfs
@@ -42,4 +42,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
+          name: dist-${{ matrix.os }}
           path: ./wheelhouse/*.whl
