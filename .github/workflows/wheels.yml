@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macos-latest, ubuntu-latest] # windows-2019
+        os: [windows-latest] # [macos-latest, ubuntu-latest]
 
     steps:
       # Check out repository using git-lfs
@@ -31,11 +31,12 @@ jobs:
         run: python -m cibuildwheel --output-dir wheelhouse
         # Options (https://cibuildwheel.readthedocs.io/en/stable/options/)
         env:
-          CIBW_SKIP: cp36-* cp37-* cp38-* *pp37-* pp38-* *musllinux* *win_amd64* *win_arm64* *win32*
+          PIP_CONSTRAINT: constraints.txt
+          CIBW_SKIP: cp36-* cp37-* cp38-* *pp37-* pp38-* *musllinux* *win_arm64* *win32* pp*
           CIBW_BEFORE_BUILD_MACOS: python3 -m pip install --upgrade pip wheel setuptools cffi packaging
-          # CIBW_BEFORE_BUILD_WINDOWS: python3 -m pip install --upgrade pip wheel setuptools cffi packaging
+          CIBW_BEFORE_BUILD_WINDOWS: python3 -m pip install --upgrade pip wheel setuptools cffi packaging
           CIBW_ARCHS_MACOS: "x86_64 arm64"
-          # CIBW_ARCHS_WINDOWS: "AMD64"
+          CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_ARCHS_LINUX: "x86_64"
           CIBW_BUILD_FRONTEND: "build"
           # CIBW_PROJECT_REQUIRES_PYTHON: ">=3.9"
