@@ -5,12 +5,12 @@ description = "Trigram statistics for Icelandic"
 authors = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
 maintainers = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
 readme = { file = "README.rst", content-type = "text/x-rst" }
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE.txt"]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: POSIX",
     "Operating System :: Unix",
     "Operating System :: MacOS",
@@ -62,6 +62,6 @@ line-length = 88
 
 [tool.isort]
 # This forces these imports to placed at the top
-known_future_library = ["__future__", "typing", "typing_extensions"]
+known_future_library = ["typing"]
 profile = "black"
 line_length = 88
