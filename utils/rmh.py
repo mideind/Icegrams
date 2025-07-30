@@ -1,44 +1,53 @@
 #!/usr/bin/env python
 """
 
-    Icegrams: A trigrams library for Icelandic
+Icegrams: A trigrams library for Icelandic
 
-    utils/rmh.py
+utils/rmh.py
 
-    Copyright (C) 2024 Miðeind ehf
+Copyright (C) 2019-2025 Miðeind ehf
 
-    This software is licensed under the MIT License:
+This software is licensed under the MIT License:
 
-        Permission is hereby granted, free of charge, to any person
-        obtaining a copy of this software and associated documentation
-        files (the "Software"), to deal in the Software without restriction,
-        including without limitation the rights to use, copy, modify, merge,
-        publish, distribute, sublicense, and/or sell copies of the Software,
-        and to permit persons to whom the Software is furnished to do so,
-        subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of the Software,
+    and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
 
-        The above copyright notice and this permission notice shall be
-        included in all copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
 
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-        IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-        CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-        TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-        SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-    This utility program reads text files from the Icelandic Gigaword Corpus
-    (Risamálheild, RMH), tokenizes them, cuts them into trigrams and
-    writes them to a PostgreSQL database table. The PostgreSQL database
-    is assumed to have the name 'rmh', and to be accessible from the PostgreSQL
-    user/role 'rmh' with password 'rmh'.
+This utility program reads text files from the Icelandic Gigaword Corpus
+(Risamálheild, RMH), tokenizes them, cuts them into trigrams and
+writes them to a PostgreSQL database table. The PostgreSQL database
+is assumed to have the name 'rmh', and to be accessible from the PostgreSQL
+user/role 'rmh' with password 'rmh'.
 
 """
 
 from typing import (
-    Iterator, Iterable, Tuple, List, Optional, Dict, Set, Callable, Type, Any
+    Iterator,
+    Iterable,
+    Optional,
+    Tuple,
+    List,
+    Dict,
+    Set,
+    Callable,
+    Type,
+    Any,
 )
 
 import os
@@ -52,7 +61,6 @@ from datetime import datetime
 from sqlalchemy.ext.declarative import declarative_base  # type: ignore
 from sqlalchemy import (
     create_engine,
-    Table,
     Column,
     Integer,
     String,
@@ -62,7 +70,7 @@ from sqlalchemy.orm import sessionmaker, Session  # type: ignore
 from sqlalchemy.exc import SQLAlchemyError as DatabaseError  # type: ignore
 from sqlalchemy.schema import Table  # type: ignore
 
-from tokenizer import tokenize, correct_spaces, Tok, TOK
+from tokenizer import tokenize, Tok, TOK
 
 
 # Obtain our path
@@ -91,21 +99,23 @@ parser = argparse.ArgumentParser(
 )
 
 parser.add_argument(
-    'path',
-    nargs='?',
+    "path",
+    nargs="?",
     type=str,
-    help=f"glob path of the RMH files to process",
+    help="glob path of the RMH files to process",
 )
 
 parser.add_argument(
-    "-n", "--number",
+    "-n",
+    "--number",
     type=int,
     default=0,
     help="number of files to process (default=all)",
 )
 
 parser.add_argument(
-    "-l", "--listfiles",
+    "-l",
+    "--listfiles",
     default=False,
     action="store_true",
     help="list a random sample of RMH file paths",
@@ -113,20 +123,19 @@ parser.add_argument(
 
 
 class Trigram_DB:
-
-    """ Wrapper around the SQLAlchemy connection, engine and session """
+    """Wrapper around the SQLAlchemy connection, engine and session"""
 
     def __init__(self) -> None:
-        """ Initialize the SQLAlchemy connection to the trigram database """
+        """Initialize the SQLAlchemy connection to the trigram database"""
 
         # Assemble the connection string, using psycopg2cffi which
         # supports both PyPy and CPython
         conn_str = "postgresql+{0}://{1}:{2}@{3}:{4}/rmh".format(
             "psycopg2cffi",
-            "rmh", # Settings.DB_USERNAME,
-            "rmh", # Settings.DB_PASSWORD,
-            "localhost", # Settings.DB_HOSTNAME,
-            "5432" # Settings.DB_PORT,
+            "rmh",  # Settings.DB_USERNAME,
+            "rmh",  # Settings.DB_PASSWORD,
+            "localhost",  # Settings.DB_HOSTNAME,
+            "5432",  # Settings.DB_PORT,
         )
 
         # Create engine and bind session
@@ -134,21 +143,20 @@ class Trigram_DB:
         self._Session = sessionmaker(bind=self._engine)
 
     def create_tables(self) -> None:
-        """ Create all missing tables in the database """
+        """Create all missing tables in the database"""
         Base.metadata.create_all(self._engine)
 
     def execute(self, sql: str, **kwargs) -> Any:
-        """ Execute raw SQL directly on the engine """
+        """Execute raw SQL directly on the engine"""
         return self._engine.execute(sql, **kwargs)
 
     @property
     def session(self) -> Session:
-        """ Returns a freshly created Session instance from the sessionmaker """
+        """Returns a freshly created Session instance from the sessionmaker"""
         return self._Session()
 
 
 class classproperty:
-
     def __init__(self, f):
         self.f = f
 
@@ -157,10 +165,10 @@ class classproperty:
 
 
 class SessionContext:
-    """ Context manager for database sessions """
+    """Context manager for database sessions"""
 
     # Singleton instance of Trigram_DB
-    _db = None  # type: Optional[Trigram_DB]
+    _db: Optional[Trigram_DB] = None
 
     # pylint: disable=no-self-argument
     @classproperty
@@ -171,11 +179,10 @@ class SessionContext:
 
     @classmethod
     def cleanup(cls) -> None:
-        """ Clean up the reference to the singleton Trigram_DB instance """
+        """Clean up the reference to the singleton Trigram_DB instance"""
         cls._db = None
 
     def __init__(self, session=None, commit=False, read_only=False) -> None:
-
         if session is None:
             # Create a new session that will be automatically committed
             # (if commit == True) and closed upon exit from the context
@@ -195,13 +202,13 @@ class SessionContext:
             self._commit = False
 
     def __enter__(self):
-        """ Python context manager protocol """
+        """Python context manager protocol"""
         # Return the wrapped database session
         return self._session
 
     # noinspection PyUnusedLocal
     def __exit__(self, exc_type, exc_value, traceback):
-        """ Python context manager protocol """
+        """Python context manager protocol"""
         if self._new_session:
             if self._commit:
                 if exc_type is None:
@@ -215,8 +222,7 @@ class SessionContext:
 
 
 class Trigram(Base):
-
-    """ A database table containing trigrams of tokens from a parsed sentence """
+    """A database table containing trigrams of tokens from a parsed sentence"""
 
     __tablename__ = "trigrams"
 
@@ -246,7 +252,7 @@ class Trigram(Base):
 
     @staticmethod
     def upsert(session, t1, t2, t3):
-        """ Insert a trigram, or increment the frequency count if already present """
+        """Insert a trigram, or increment the frequency count if already present"""
         # The following code uses "upsert" functionality (INSERT...ON CONFLICT...DO UPDATE)
         # that was introduced in PostgreSQL 9.5. This means that the upsert runs on the
         # server side and is atomic, either an insert of a new trigram or an update of
@@ -262,7 +268,7 @@ class Trigram(Base):
 
     @staticmethod
     def delete_all(session):
-        """ Delete all trigrams """
+        """Delete all trigrams"""
         session.execute("delete from trigrams;")
 
     def __repr__(self):
@@ -270,7 +276,7 @@ class Trigram(Base):
 
 
 def load_corrections() -> None:
-    """ Fills global data structures for correcting tokens """
+    """Fills global data structures for correcting tokens"""
     with open(os.path.join(basepath, "correct.txt"), "r", encoding="utf-8") as myfile:
         for line in myfile:
             key, val = line.strip().split("\t")
@@ -296,7 +302,7 @@ def load_corrections() -> None:
 
 
 def handle_word(token: Tok) -> Iterator[str]:
-    """ Return the text of a word token, after potential editing """
+    """Return the text of a word token, after potential editing"""
     t = token.txt
     if t in CHANGING:
         # We take a closer look
@@ -320,32 +326,32 @@ def handle_word(token: Tok) -> Iterator[str]:
 
 
 def handle_punctuation(token: Tok) -> Iterator[str]:
-    """ Return the normalized version of punctuation """
+    """Return the normalized version of punctuation"""
     yield token.val[1]
 
 
 def handle_passthrough(token: Tok) -> Iterator[str]:
-    """ Return the token text unchanged """
+    """Return the token text unchanged"""
     yield token.txt
 
 
 def handle_split(token: Tok) -> Iterator[str]:
-    """ Split the token text by spaces and return the components """
+    """Split the token text by spaces and return the components"""
     yield from token.txt.split()
 
 
 def handle_measurement(token: Tok) -> Iterator[str]:
-    """ Return a [NUMBER] token followed by a SI unit """
+    """Return a [NUMBER] token followed by a SI unit"""
     yield from ("[NUMBER]", token.val[0])
 
 
 def handle_none(token: Tok) -> Iterator[str]:
-    """ Empty generator """
+    """Empty generator"""
     yield from ()
 
 
 def handle_other(token: Tok) -> Iterator[str]:
-    """ Return a standard placeholder for the token kind """
+    """Return a standard placeholder for the token kind"""
     yield "[" + TOK.descr[token.kind] + "]"
 
 
@@ -368,7 +374,7 @@ token_dispatch: Dict[int, Callable[[Tok], Iterator[str]]] = {
 
 
 def tokens(text: str) -> Iterator[str]:
-    """ Generator for token stream """
+    """Generator for token stream"""
     toklist = list(tokenize(text, convert_measurements=True, replace_html_escapes=True))
     if len(toklist) > 1 and all(t.kind != TOK.UNKNOWN for t in toklist):
         # For each sentence, start and end with empty strings
@@ -381,14 +387,12 @@ def tokens(text: str) -> Iterator[str]:
 
 
 def trigrams(iterable: Iterable[str]) -> Iterator[Tuple[Any, ...]]:
-    """ Generate trigrams (tuples of three strings) from the given iterable """
-    return zip(
-        *((islice(seq, i, None) for i, seq in enumerate(tee(iterable, 3))))
-    )
+    """Generate trigrams (tuples of three strings) from the given iterable"""
+    return zip(*((islice(seq, i, None) for i, seq in enumerate(tee(iterable, 3)))))
 
 
 def process(session: SessionContext, text: str) -> int:
-    """ Process a single line of text from an RMH file """
+    """Process a single line of text from an RMH file"""
     upserted = 0
     for tg in trigrams(tokens(text)):
         if any(tg):
@@ -396,15 +400,12 @@ def process(session: SessionContext, text: str) -> int:
                 Trigram.upsert(session, *tg)
                 upserted += 1
             except DatabaseError as ex:
-                print(
-                    "*** Exception {0} on trigram {1}, skipped"
-                    .format(ex, tg)
-                )
+                print("*** Exception {0} on trigram {1}, skipped".format(ex, tg))
     return upserted
 
 
-def path_iterator(path: str, limit: int = None) -> Iterator[str]:
-    """ Return an iterator of file paths """
+def path_iterator(path: str, limit: int = 0) -> Iterator[str]:
+    """Return an iterator of file paths"""
     path = path.strip()
     if path.startswith("@"):
         # Interpret the path as the path of a file to read paths from
@@ -413,7 +414,7 @@ def path_iterator(path: str, limit: int = None) -> Iterator[str]:
                 line = line.strip()
                 if line:
                     yield line
-    if limit is None or limit <= 0:
+    if limit <= 0:
         # No limit: Iterate through all files matching the glob pattern
         yield from glob.iglob(path, recursive=True)
     else:
@@ -421,31 +422,28 @@ def path_iterator(path: str, limit: int = None) -> Iterator[str]:
         yield from random.sample(glob.glob(path, recursive=True), limit)
 
 
-def make_trigrams(path_iterator: Iterable[str], *, limit: int = None):
-    """ Iterate through files according to the given glob path spec,
-        extracting trigrams from contained sentences. The trigrams
-        are corrected and subsequently 'upserted' into the trigrams
-        table of a PostgreSQL database. """
+def make_trigrams(path_iterator: Iterable[str], *, limit: int = 0):
+    """Iterate through files according to the given glob path spec,
+    extracting trigrams from contained sentences. The trigrams
+    are corrected and subsequently 'upserted' into the trigrams
+    table of a PostgreSQL database."""
 
     FLUSH_THRESHOLD = 10000
 
     load_corrections()
 
     with SessionContext(commit=False) as session:
-
         # Delete existing trigrams
         Trigram.delete_all(session)
         session.commit()
 
         try:
-
-            limited = (limit is not None) and (limit > 0)
+            limited = limit > 0
 
             file_count = 0
 
             # Iterate through the selected RMH files
             for fpath in path_iterator:
-
                 file_count += 1
                 if limited:
                     report = "({0}/{1}) ".format(file_count, limit)
@@ -480,7 +478,6 @@ def make_trigrams(path_iterator: Iterable[str], *, limit: int = None):
 
 
 def main():
-
     args = parser.parse_args()
     if not args.path:
         print("Path to RMH files must be specified.")
@@ -497,7 +494,9 @@ def main():
     start = datetime.utcnow()
     print("Processing started at {0}".format(start))
     print(
-        "Processing {0} files from path {1}".format(limit if limit else "all", args.path)
+        "Processing {0} files from path {1}".format(
+            limit if limit else "all", args.path
+        )
     )
     file_paths = path_iterator(args.path, limit=limit)
     make_trigrams(file_paths, limit=limit)
@@ -508,5 +507,4 @@ def main():
 
 
 if __name__ == "__main__":
-
     main()

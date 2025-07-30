@@ -1,111 +1,111 @@
 """
 
-    Icegrams: A trigrams library for Icelandic
+Icegrams: A trigrams library for Icelandic
 
-    ngrams.py
+ngrams.py
 
-    Copyright (C) 2024 Miðeind ehf.
-    Original author: Vilhjálmur Þorsteinsson
+Copyright (C) 2019-2025 Miðeind ehf.
+Original author: Vilhjálmur Þorsteinsson
 
-    This software is licensed under the MIT License:
+This software is licensed under the MIT License:
 
-        Permission is hereby granted, free of charge, to any person
-        obtaining a copy of this software and associated documentation
-        files (the "Software"), to deal in the Software without restriction,
-        including without limitation the rights to use, copy, modify, merge,
-        publish, distribute, sublicense, and/or sell copies of the Software,
-        and to permit persons to whom the Software is furnished to do so,
-        subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of the Software,
+    and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
 
-        The above copyright notice and this permission notice shall be
-        included in all copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
 
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-        IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-        CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-        TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-        SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-    This module reads a tab-separated text file (.tsv file)
-    containing trigrams and their frequency counts, and
-    generates a compressed binary database of trigrams
-    that can be queried for unigram, bigram and trigram
-    frequencies.
+This module reads a tab-separated text file (.tsv file)
+containing trigrams and their frequency counts, and
+generates a compressed binary database of trigrams
+that can be queried for unigram, bigram and trigram
+frequencies.
 
-    The trigram compression is based on the scheme described
-    by G.E. Pibiri and R. Venturini (2017) in "Efficient Data Structures
-    for Massive N-Gram Datasets", Proceedings of the 40th International
-    ACM SIGIR Conference on Research and Development in Information
-    Retrieval, pp. 615-624. The paper is available online at:
-    http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf
+The trigram compression is based on the scheme described
+by G.E. Pibiri and R. Venturini (2017) in "Efficient Data Structures
+for Massive N-Gram Datasets", Proceedings of the 40th International
+ACM SIGIR Conference on Research and Development in Information
+Retrieval, pp. 615-624. The paper is available online at:
+http://pages.di.unipi.it/pibiri/papers/SIGIR17.pdf
 
-    See also an updated (2018) version of the paper at:
-    https://arxiv.org/pdf/1806.09447.pdf
+See also an updated (2018) version of the paper at:
+https://arxiv.org/pdf/1806.09447.pdf
 
-    We use partitioned Elias-Fano indexes as described in
-    Ottaviano and Venturini (2014),
-    http://www.di.unipi.it/~ottavian/files/elias_fano_sigir14.pdf
+We use partitioned Elias-Fano indexes as described in
+Ottaviano and Venturini (2014),
+http://www.di.unipi.it/~ottavian/files/elias_fano_sigir14.pdf
 
-    In summary, the scheme is broadly as follows:
+In summary, the scheme is broadly as follows:
 
-    1) All distinct unigrams (tokens) are stored in a compressed
-       Trie data structure, yielding a mapping (unigram -> id),
-       where the id is a 32-bit unsigned integer.
-    2) Unigram ids are allocated in order of descending
-       frequency of occurrence in the ngram list (note: not
-       the actual unigram frequency counts in the source text).
-       Thus, the unigram which occurs most often gets the
-       lowest id. However, an exception is made for the empty
-       (null) unigram which always has id 0 regardless of
-       frequency.
-    3) At the unigram level, we store a sequence of pointers
-       to the child bigrams. Thus, if the unigram with id N
-       leads into K (>=0) child bigrams, the unigram pointer list
-       entry UP[N] will contain M and entry UP[N+1] will contain
-       M+K. UP[0] is always 0. The UP list is monotonically
-       increasing (although K=0 is allowed) and can be stored
-       with Elias-Fano encoding.
-    4) At the bigram level, for each unigram parent of a list
-       of bigram children, we store an id list in increasing
-       id order, using a prefix sum scheme. To all entries in a
-       unigram's child list BI, spanning from BI[UP[N]] up to
-       BI[UP[N+1]], we add the constant BI[UP[N]-1] (where
-       BI[-1] is taken to be 0). This enables the id list to
-       be encoded using Elias-Fano. We also store another pointer
-       list into the trigram level, which is monotonically
-       increasing and thus also Elias-Fano encodable.
-    5) At the trigram level, instead of storing an id list as
-       such, we use a trick from the cited paper. Each trigram
-       is coded as (id0, id1, id2). This means that (id1, id2)
-       is also stored as a bigram. Instead of storing id2 in
-       the id list, we can store its index within id1's children
-       in the unigram-to-bigram relation. This index is a much lower
-       number than id2 itself and thus yields a significantly more
-       compact Elias-Fano encoding.
-    6) Frequency counts are stored at each level in a separate
-       compressed hierarchical list. The frequencies that occur
-       at each level are first counted and bucketed along with
-       their frequency of occurrence. The buckets are then allocated
-       code words where the most common buckets get the shortest
-       code words. A separate bit array keeps track of where the
-       code words start in the main array. This means that the
-       frequency list is coded in 2N bits where N is the sum of
-       the lengths of the code words used. The most common bucket
-       numbers thus take only a couple of bits each.
-    7) A further twist in the case of bigram and trigram id lists
-       (those being the biggest ones) is that we use partitioned
-       Elias-Fano instead of a regular monotonic Elias-Fano encoding.
-       A partitioned list is divided into quanta of fixed size, with
-       the starting value of each quantum stored in a separate
-       upper-level list, and the items within each quantum having
-       the start value subtracted from them (meaning that the first
-       item of each quantum is always stored as 0). Lookup is then
-       done first in the upper-level list (at index n // Q) and
-       secondly within the appropriate quantum (at index n % Q), where
-       Q is the quantum size.
+1) All distinct unigrams (tokens) are stored in a compressed
+   Trie data structure, yielding a mapping (unigram -> id),
+   where the id is a 32-bit unsigned integer.
+2) Unigram ids are allocated in order of descending
+   frequency of occurrence in the ngram list (note: not
+   the actual unigram frequency counts in the source text).
+   Thus, the unigram which occurs most often gets the
+   lowest id. However, an exception is made for the empty
+   (null) unigram which always has id 0 regardless of
+   frequency.
+3) At the unigram level, we store a sequence of pointers
+   to the child bigrams. Thus, if the unigram with id N
+   leads into K (>=0) child bigrams, the unigram pointer list
+   entry UP[N] will contain M and entry UP[N+1] will contain
+   M+K. UP[0] is always 0. The UP list is monotonically
+   increasing (although K=0 is allowed) and can be stored
+   with Elias-Fano encoding.
+4) At the bigram level, for each unigram parent of a list
+   of bigram children, we store an id list in increasing
+   id order, using a prefix sum scheme. To all entries in a
+   unigram's child list BI, spanning from BI[UP[N]] up to
+   BI[UP[N+1]], we add the constant BI[UP[N]-1] (where
+   BI[-1] is taken to be 0). This enables the id list to
+   be encoded using Elias-Fano. We also store another pointer
+   list into the trigram level, which is monotonically
+   increasing and thus also Elias-Fano encodable.
+5) At the trigram level, instead of storing an id list as
+   such, we use a trick from the cited paper. Each trigram
+   is coded as (id0, id1, id2). This means that (id1, id2)
+   is also stored as a bigram. Instead of storing id2 in
+   the id list, we can store its index within id1's children
+   in the unigram-to-bigram relation. This index is a much lower
+   number than id2 itself and thus yields a significantly more
+   compact Elias-Fano encoding.
+6) Frequency counts are stored at each level in a separate
+   compressed hierarchical list. The frequencies that occur
+   at each level are first counted and bucketed along with
+   their frequency of occurrence. The buckets are then allocated
+   code words where the most common buckets get the shortest
+   code words. A separate bit array keeps track of where the
+   code words start in the main array. This means that the
+   frequency list is coded in 2N bits where N is the sum of
+   the lengths of the code words used. The most common bucket
+   numbers thus take only a couple of bits each.
+7) A further twist in the case of bigram and trigram id lists
+   (those being the biggest ones) is that we use partitioned
+   Elias-Fano instead of a regular monotonic Elias-Fano encoding.
+   A partitioned list is divided into quanta of fixed size, with
+   the starting value of each quantum stored in a separate
+   upper-level list, and the items within each quantum having
+   the start value subtracted from them (meaning that the first
+   item of each quantum is always stored as 0). Lookup is then
+   done first in the upper-level list (at index n // Q) and
+   secondly within the appropriate quantum (at index n % Q), where
+   Q is the quantum size.
 
 """
 
@@ -289,7 +289,7 @@ class BitArray:
             raise ValueError("Bits parameter must be > 0")
         # Add the new bits on the most significant side of the
         # current buffer
-        self.buf |= ((val & ((1 << bits) - 1))) << self.bits
+        self.buf |= (val & ((1 << bits) - 1)) << self.bits
         self.bits += bits
         # Emit completed bytes, if any, from the least significant
         # side of the current buffer
@@ -356,7 +356,6 @@ class BitArray:
 
 
 class BaseList:
-
     def lookup(self, ix: int) -> int:
         """Should always be overridden in derived classes"""
         raise NotImplementedError
@@ -382,9 +381,7 @@ class MonotonicList(BaseList):
         # (usually a memoryview() object)
         self.b = b
         self.ffi_b: Optional[bytes] = (
-            None
-            if b is None
-            else ffi.cast("uint8_t*", ffi.from_buffer(b))  # type: ignore
+            None if b is None else ffi.cast("uint8_t*", ffi.from_buffer(b))  # type: ignore
         )
         self.n = 0
         self.u = 0
@@ -1701,7 +1698,6 @@ class NgramStorage:
 
 
 if __name__ == "__main__":
-
     print("Welcome to the Icegrams trigram compressor\n")
 
     ngrams = NgramStorage()
