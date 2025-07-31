@@ -84,3 +84,6 @@ $RECYCLE.BIN/
 *.msi
 *.msm
 *.msp
+
+# Test coverage tmp files
+.coverage
