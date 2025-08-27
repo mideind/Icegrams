@@ -24,11 +24,11 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Lint with ruff
       run: |
+        python -m pip install --system uv
         uv pip install --system ruff
         ruff check src/icegrams
     - name: Install dependencies
       run: |
-        python -m pip install uv
         uv pip install --system --upgrade wheel setuptools pytest packaging
         uv pip install --system -e .
     - name: Test with pytest
