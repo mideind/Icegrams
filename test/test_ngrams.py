@@ -33,7 +33,7 @@ def test_compressed_list():
         assert False, "Should have raised IndexError"
     except IndexError:
         pass
-    except:
+    except Exception:
         assert False, "Should have raised IndexError"
     assert len(ba) == (90 + 7) // 8
 

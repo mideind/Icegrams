@@ -1,39 +1,39 @@
 """
 
-    Icegrams: A trigrams library for Icelandic
+Icegrams: A trigrams library for Icelandic
 
-    trie.py
+trie.py
 
-    Copyright (C) 2024 Miðeind ehf.
-    Original author: Vilhjálmur Þorsteinsson
+Copyright (C) 2020-2025 Miðeind ehf.
+Original author: Vilhjálmur Þorsteinsson
 
-    This software is licensed under the MIT License:
+This software is licensed under the MIT License:
 
-        Permission is hereby granted, free of charge, to any person
-        obtaining a copy of this software and associated documentation
-        files (the "Software"), to deal in the Software without restriction,
-        including without limitation the rights to use, copy, modify, merge,
-        publish, distribute, sublicense, and/or sell copies of the Software,
-        and to permit persons to whom the Software is furnished to do so,
-        subject to the following conditions:
+    Permission is hereby granted, free of charge, to any person
+    obtaining a copy of this software and associated documentation
+    files (the "Software"), to deal in the Software without restriction,
+    including without limitation the rights to use, copy, modify, merge,
+    publish, distribute, sublicense, and/or sell copies of the Software,
+    and to permit persons to whom the Software is furnished to do so,
+    subject to the following conditions:
 
-        The above copyright notice and this permission notice shall be
-        included in all copies or substantial portions of the Software.
+    The above copyright notice and this permission notice shall be
+    included in all copies or substantial portions of the Software.
 
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-        EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-        MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-        IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-        CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-        TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-        SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+    CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+    TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+    SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-    This module encapsulated the unigram trie logic used
-    by ngrams.py to compress the unigram set and map
-    unigrams to integer ids.
+This module encapsulated the unigram trie logic used
+by ngrams.py to compress the unigram set and map
+unigrams to integer ids.
 
-    Trie lookup is implemented in trie.cpp.
+Trie lookup is implemented in trie.cpp.
 
 """
 
@@ -48,8 +48,7 @@ UINT8 = struct.Struct("<B")
 
 
 class _Node:
-
-    """ A Node within a Trie """
+    """A Node within a Trie"""
 
     __slots__ = ("fragment", "value", "children")
 
@@ -61,7 +60,7 @@ class _Node:
         self.children: Optional[List[_Node]] = None
 
     def add(self, fragment: bytes, value: int) -> Optional[int]:
-        """ Add the given remaining key fragment to this node """
+        """Add the given remaining key fragment to this node"""
         if len(fragment) == 0:
             if self.value is not None:
                 # This key already exists: return its value
@@ -151,8 +150,8 @@ class _Node:
         return None
 
     def lookup(self, fragment: bytes) -> Optional[int]:
-        """ Lookup the given key fragment in this node and its children
-            as necessary """
+        """Lookup the given key fragment in this node and its children
+        as necessary"""
         if not fragment:
             # We've arrived at our destination: return the value
             return self.value
@@ -165,7 +164,7 @@ class _Node:
         for child in self.children:
             if fragment.startswith(child.fragment):
                 # This is a continuation route: take it
-                return child.lookup(fragment[len(child.fragment):])
+                return child.lookup(fragment[len(child.fragment) :])
         # No route matches: the key was not found
         return None
 
@@ -176,13 +175,12 @@ class _Node:
 
 
 class Trie:
-
-    """ Wrapper class for a radix (compact) trie data structure.
-        Each node in the trie contains a prefix string, leading
-        to its children. """
+    """Wrapper class for a radix (compact) trie data structure.
+    Each node in the trie contains a prefix string, leading
+    to its children."""
 
     def __init__(
-        self, root_fragment: bytes=b"", reserve_zero_for_empty: bool=True
+        self, root_fragment: bytes = b"", reserve_zero_for_empty: bool = True
     ) -> None:
         # We reserve the 0 index for the empty string
         self._cnt = 1 if reserve_zero_for_empty else 0
@@ -190,15 +188,15 @@ class Trie:
 
     @property
     def root(self) -> _Node:
-        """ Return the root node of the trie """
+        """Return the root node of the trie"""
         return self._root
 
-    def add(self, key: bytes, value: Optional[int]=None) -> int:
-        """ Add the given (key, value) pair to the trie.
-            Duplicates are not allowed and not added to the trie.
-            If the value is None, it is set to the number of entries
-            already in the trie, thereby making it function as
-            an automatic generator of list indices. """
+    def add(self, key: bytes, value: Optional[int] = None) -> int:
+        """Add the given (key, value) pair to the trie.
+        Duplicates are not allowed and not added to the trie.
+        If the value is None, it is set to the number of entries
+        already in the trie, thereby making it function as
+        an automatic generator of list indices."""
         if not key:
             return 0
         if value is None:
@@ -212,16 +210,16 @@ class Trie:
         self._cnt += 1
         return value
 
-    def get(self, key: bytes, default: Optional[int]=None) -> Optional[int]:
-        """ Lookup the given key and return the associated value,
-            or the default if the key is not found. """
+    def get(self, key: bytes, default: Optional[int] = None) -> Optional[int]:
+        """Lookup the given key and return the associated value,
+        or the default if the key is not found."""
         if not key:
             return 0
         value = self._root.lookup(key)
         return default if value is None else value
 
     def __getitem__(self, key: bytes) -> int:
-        """ Lookup in square bracket notation """
+        """Lookup in square bracket notation"""
         if not key:
             return 0
         value = self._root.lookup(key)
@@ -230,12 +228,12 @@ class Trie:
         return value
 
     def __len__(self) -> int:
-        """ Return the number of unique keys within the trie,
-            including the empty string sentinel that has the value 0 """
+        """Return the number of unique keys within the trie,
+        including the empty string sentinel that has the value 0"""
         return self._cnt
 
-    def write(self, f: BinaryIO, *, verbose: bool=False) -> None:
-        """ Write the unigram trie contents to a packed binary stream """
+    def write(self, f: BinaryIO, *, verbose: bool = False) -> None:
+        """Write the unigram trie contents to a packed binary stream"""
         # We assume that the alphabet can be represented in 7 bits
         todo: deque[Tuple[_Node, int]] = deque()
         node_cnt = 0
@@ -245,9 +243,9 @@ class Trie:
         max_distance = 0
 
         def write_node(node: _Node, parent_loc: int) -> None:
-            """ Write a single node to the packed binary stream,
-                and fix up the parent's pointer to the location
-                of this node """
+            """Write a single node to the packed binary stream,
+            and fix up the parent's pointer to the location
+            of this node"""
             loc = f.tell()
             val = 0x007FFFFF if node.value is None else node.value
             assert val < 2**23
@@ -269,10 +267,7 @@ class Trie:
                 assert chix < 2**7
                 f.write(
                     UINT32.pack(
-                        0x80000000
-                        | childless_bit
-                        | (chix << 23)
-                        | (val & 0x007FFFFF)
+                        0x80000000 | childless_bit | (chix << 23) | (val & 0x007FFFFF)
                     )
                 )
                 single_char_node_count += 1
@@ -320,9 +315,9 @@ class Trie:
         if verbose:
             print(
                 "Written {0:,} nodes, thereof {1:,} single-char nodes "
-                "and {2:,} multi-char."
-                .format(node_cnt, single_char_node_count, multi_char_node_count)
+                "and {2:,} multi-char.".format(
+                    node_cnt, single_char_node_count, multi_char_node_count
+                )
             )
             print("Childless nodes are {0:,}.".format(no_child_node_count))
             print("Maximum fixup distance is {0:,} bytes.".format(max_distance))
-
