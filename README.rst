@@ -376,7 +376,7 @@ Changelog
 Copyright and licensing
 ***********************
 
-Icegrams is Copyright © 2020-2024 `Miðeind ehf. <https://mideind.is>`__.
+Icegrams is Copyright © 2020-2025 `Miðeind ehf. <https://mideind.is>`__.
 The original author of this software is *Vilhjálmur Þorsteinsson*.
 
 This software is licensed under the **MIT License**:
