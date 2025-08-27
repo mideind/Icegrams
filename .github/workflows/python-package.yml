@@ -24,7 +24,7 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Lint with ruff
       run: |
-        python -m pip install --system uv
+        python -m pip install uv
         uv pip install --system ruff
         ruff check src/icegrams
     - name: Install dependencies
