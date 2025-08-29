@@ -287,7 +287,7 @@ Icegrams is built with a sliding window over the source text. This means that
 a sentence such as `"Maðurinn borðaði ísinn."` results in the following
 trigrams being added to the database:
 
-```
+```python
    ("", "", "Maðurinn")
    ("", "Maðurinn", "borðaði")
    ("Maðurinn", "borðaði", "ísinn")
@@ -299,7 +299,7 @@ trigrams being added to the database:
 The same sliding window strategy is applied for bigrams, so the following
 bigrams would be recorded for the same sentence:
 
-```
+```python
    ("", "Maðurinn")
    ("Maðurinn", "borðaði")
    ("borðaði", "ísinn")
@@ -312,7 +312,6 @@ a sentence by asking for `ng.succ(N, "")`.
 
 And, of course, four unigrams are also added, one for each token in the
 sentence.
-
 
 The tokenization of the source text into unigrams is done with the
 [Tokenizer package](https://pypi.org/project/tokenizer) and
@@ -346,16 +345,16 @@ sudo apt-get install python3-dev
 To install this package:
 
 ```bash
-$ pip install icegrams
+pip install icegrams
 ```
 
 If you want to be able to edit the source, do like so (assuming you have **git** installed):
 
 ```bash
-$ git clone https://github.com/mideind/Icegrams
-$ cd Icegrams
-$ # [ Activate your virtualenv here if you have one ]
-$ python setup.py develop
+git clone https://github.com/mideind/Icegrams
+cd Icegrams
+# [ Activate your virtualenv here if you have one ]
+python setup.py develop
 ```
 
 The package source code is now in `./src/icegrams`.
@@ -367,7 +366,7 @@ To run the built-in tests, install [pytest](https://docs.pytest.org/en/latest/),
 virtualenv), then run:
 
 ```bash
-$ python -m pytest
+python -m pytest
 ```
 
 ## Changelog
