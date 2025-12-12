@@ -13,6 +13,6 @@ setup(
     include_package_data=True,
     zip_safe=False,
     setup_requires=["cffi>=1.15.1", "setuptools"],
-    install_requires=["cffi>=1.15.1", "setuptools"],
+    install_requires=["cffi>=1.15.1"],
     cffi_modules=["src/icegrams/trie_build.py:ffibuilder"],
 )

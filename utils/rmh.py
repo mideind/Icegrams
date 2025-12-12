@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# type: ignore
 """
 
 Icegrams: A trigrams library for Icelandic

@@ -112,6 +112,7 @@ In summary, the scheme is broadly as follows:
 from typing import (
     List,
     Dict,
+    Sequence,
     Tuple,
     Set,
     Iterable,
@@ -120,7 +121,6 @@ from typing import (
     Callable,
     IO,
     cast,
-    TYPE_CHECKING,
 )
 import time
 from collections import defaultdict
@@ -137,31 +137,24 @@ _PATH = os.path.dirname(__file__) or "."
 TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
 BINARY_FILENAME = ""
 
-if TYPE_CHECKING:
-    # When running mypy, we must import Trie in a way that makes it happy
-    from .trie import Trie
-
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
-if __name__ == "__main__":
-    # Running as a main program
-    from _trie import lib as trie_cffi, ffi  # type: ignore  # pylint: disable=import-error
-    from trie import Trie
+from ._trie import lib as trie_cffi, ffi  # type: ignore
+from .trie import Trie
 
-    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")  # type: ignore
+if __name__ == "__main__":
+    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin") # pyright: ignore[reportConstantRedefinition]
 else:
     # Imported as a package
-    from ._trie import lib as trie_cffi, ffi  # type: ignore  # pylint: disable=import-error,no-name-in-module
-
     # Make sure that the trigrams.bin file is
     # unpacked and ready for use
     import importlib.resources as importlib_resources
 
     ref = importlib_resources.files("icegrams").joinpath("resources", "trigrams.bin")
-    BINARY_FILENAME = str(ref)
+    BINARY_FILENAME = str(ref) # pyright: ignore[reportConstantRedefinition]
 
-ffi: Any = cast(Any, ffi)  # type: ignore
-trie_cffi: Any = cast(Any, trie_cffi)  # type: ignore
+ffi: Any = cast(Any, ffi)
+trie_cffi: Any = cast(Any, trie_cffi)
 
 UINT32 = struct.Struct("<I")
 UINT16 = struct.Struct("<H")
@@ -1117,7 +1110,7 @@ class NgramStorage:
             ):
                 compressed_index.extend(UINT32.pack(len(compressed_vocab)))
             compressed_vocab.extend(w + b"\x00")
-        parts = [
+        parts: Sequence[bytes] = [
             UINT32.pack(len(compressed_index) // 4),
             compressed_index,
             gzip.compress(compressed_vocab),
