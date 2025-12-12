@@ -112,6 +112,10 @@ else:
 if IMPLEMENTATION == "PyPy":
     os.environ["LDCXXSHARED"] = "c++ -shared"
 
+# Use the Python stable ABI (abi3) for CPython, allowing a single wheel
+# to work across multiple Python versions (3.9+). PyPy doesn't support abi3.
+py_limited_api = "cp39" if IMPLEMENTATION == "CPython" else False
+
 ffibuilder.set_source(
     "icegrams._trie",
     # trie.cpp is written in C++ but must export a pure C interface.
@@ -120,6 +124,7 @@ ffibuilder.set_source(
     source_extension=".cpp",
     sources=["src/icegrams/trie.cpp"],
     extra_compile_args=extra_compile_args,
+    py_limited_api=py_limited_api,
 )
 
 ffibuilder.cdef(declarations)
