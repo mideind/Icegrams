@@ -139,8 +139,8 @@ BINARY_FILENAME = ""
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
-from ._trie import lib as trie_cffi, ffi  # type: ignore
-from .trie import Trie
+from ._trie import lib as trie_cffi, ffi  # type: ignore  # noqa: E402
+from .trie import Trie  # noqa: E402
 
 if __name__ == "__main__":
     BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin") # pyright: ignore[reportConstantRedefinition]

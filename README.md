@@ -371,6 +371,7 @@ python -m pytest
 
 ## Changelog
 
+* Version 1.1.5: Fixed PEP 561 compliance (py.typed). Fixed ruff linting in CI. (2025-12-12)
 * Version 1.1.4: Added support for Python 3.14 and Windows. Improved CI with PyPI trusted publishing. (2025-12-12)
 * Version 1.1.3: Minor tweaks. Support for Python 3.13. Now requires Python 3.9+. (2024-08-27)
 * Version 1.1.2: Minor bug fixes. Cross-platform wheels provided. Now requires Python 3.7+. (2022-12-14)
