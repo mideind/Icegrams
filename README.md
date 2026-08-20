@@ -404,6 +404,7 @@ python -m pytest
   with Miðeind's Málfríður neural spelling and grammar correction model.
   The model file is no longer bundled in the package; it is downloaded
   from a GitHub release on first use and cached locally. (2026-08-20)
+* Version 1.1.7: Published abi3 wheels; fixed C++ linking in source builds. (2026-06-11)
 * Version 1.1.6: Added abi3 wheel support for smaller release size. (2025-12-12)
 * Version 1.1.5: Fixed PEP 561 compliance (py.typed). Fixed ruff linting in CI. (2025-12-12)
 * Version 1.1.4: Added support for Python 3.14 and Windows. Improved CI with PyPI trusted publishing. (2025-12-12)
