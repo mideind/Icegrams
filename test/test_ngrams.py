@@ -94,7 +94,7 @@ def test_partitioned_list():
 def test_trigrams():
     n = Ngrams()
     assert n.prob("", "", "Í") < 1.0
-    assert n.freq("hundurinn", "át", "heimaverkefnið") == 4
+    assert n.freq("hundurinn", "át", "heimaverkefnið") >= 2
     assert n.adj_freq("xxx", "yyy", "zzz") == 1
     assert n.adj_freq("Hann", "var", "zzz") == 1
 

@@ -4,7 +4,7 @@ Icegrams: A trigrams library for Icelandic
 
 __init__.py
 
-Copyright (C) 2019-2025 Miðeind ehf.
+Copyright (C) 2019-2026 Miðeind ehf.
 Original author: Vilhjálmur Þorsteinsson
 
 This software is licensed under the MIT License:
@@ -36,7 +36,7 @@ directly accessible via the icegrams module object after importing it.
 import importlib.metadata
 
 __author__ = "Miðeind ehf."
-__copyright__ = "(C) 2019-2025 Miðeind ehf."
+__copyright__ = "(C) 2019-2026 Miðeind ehf."
 __version__ = importlib.metadata.version("icegrams")
 
 # Expose the icegrams API

@@ -1,0 +1,87 @@
+Málheild	Tegund texta	Orðafjöldi	Setningafjöldi	Villur setn	Er útlenskt	Hlutfall rangra setn.	Gæðaflokkur
+IGC-News1-ras2.tsv	News – Radio	96	6	0	0	0.00%	A
+IGC-Law3.tsv	Parliamentary data	17732	897	30	0	3.34%	A
+IGC-Adjud3.tsv	Adjudications	49887	2251	114	0	5.06%	A
+IGC-Adjud2.tsv	Adjudications	49697	2233	116	2	5.19%	A
+IGC-Law2.tsv	Parliamentary data	49086	2391	130	6	5.44%	A
+IGC-Law1.tsv	Parliamentary data	49493	2472	153	14	6.19%	A
+IGC-Adjud1.tsv	Adjudications	49765	2267	219	5	9.66%	A
+IGC-Journals-tu.tsv	Scientific journals	24774	1113	108	0	9.70%	A
+IGC-Journals-ne.tsv	Scientific journals	17556	880	94	8	10.68%	A
+IGC-Journals-tlr.tsv	Scientific journals	2836	140	15	1	10.71%	A
+IGC-Journals-tf.tsv	Scientific journals	21140	1029	111	5	10.79%	A
+IGC-Journals-rg.tsv	Scientific journals	49637	2413	280	21	11.60%	A
+IGC-Journals-bli.tsv	Scientific journals	11054	620	75	4	12.10%	A
+IGC-News2-bbl.tsv	News – specialized	49856	2749	341	0	12.40%	A
+IGC-Journals-vv.tsv	Scientific journals	49870	2928	370	14	12.64%	A
+IGC-Journals-lb.tsv	Scientific journals	49607	2647	342	23	12.92%	A
+IGC-News1-sunnlenska.tsv	News – local	49931	2795	364	0	13.02%	A
+IGC-News2-stundin.tsv	News	49860	2617	349	1	13.34%	A
+IGC-Books.tsv	Published books	15244	1006	138	1	13.72%	A
+IGC-Journals-th.tsv	Scientific journals	49849	2783	385	8	13.83%	A
+IGC-News1-frettabladidis.tsv	News	49606	2747	381	13	13.87%	A
+IGC-News2-skessuhorn.tsv	News – local	49866	2770	387	1	13.97%	A
+IGC-News2-bondi.tsv	News – specialized	43555	2786	390	0	14.00%	A
+IGC-Social2-heimur.tsv	Blog	49699	2911	420	6	14.43%	A
+IGC-News1-fiskifrettir.tsv	News – specialized	49925	2881	416	0	14.44%	A
+IGC-News1-ruv.tsv	News	49976	2844	413	2	14.52%	A
+IGC-News1-siglfirdingur.tsv	News – local	49504	3405	504	4	14.80%	A
+IGC-News2-frettatiminn.tsv	News	49858	2789	424	1	15.20%	A
+IGC-News1-vb.tsv	News – specialized	49940	2758	425	2	15.41%	A
+IGC-News2-mbl.tsv	News	49938	2632	407	0	15.46%	A
+IGC-News1-bylgjan.tsv	News – Radio	49957	2453	385	0	15.70%	A
+IGC-News1-ras1.tsv	News – Radio	45450	2486	392	0	15.77%	A
+IGC-News1-ras1og2.tsv	News – Radio	49972	2775	438	0	15.78%	A
+IGC-News2-dvis.tsv	News	49886	2888	463	6	16.03%	A
+IGC-News1-mannlif.tsv	News – specialized	49868	2841	466	1	16.40%	A
+IGC-Journals-vt.tsv	Scientific journals	45851	2738	453	5	16.54%	A
+IGC-News2-stundinblad.tsv	News	49831	2690	446	2	16.58%	A
+IGC-News1-visir.tsv	News	49870	2762	459	2	16.62%	A
+IGC-News1-sjonvarpid.tsv	News – TV	49818	2860	483	0	16.89%	A
+IGC-News2-kjarninn.tsv	News	49922	2524	428	8	16.96%	A
+IGC-News1-stod2.tsv	News – TV	49989	2649	451	0	17.03%	A
+IGC-Journals-tlf.tsv	Scientific journals	49854	2258	386	28	17.09%	A
+IGC-News1-viljinn.tsv	News	49933	2543	444	9	17.46%	A
+IGC-Journals-tv.tsv	Scientific journals	26407	1160	203	0	17.50%	A
+IGC-News2-morgunbladid.tsv	News	49704	2699	475	6	17.60%	A
+IGC-Journals-mf.tsv	Scientific journals	7253	378	67	0	17.72%	A
+IGC-News2-fjardarpostur.tsv	News – local	46895	2789	495	5	17.75%	A
+IGC-News2-kylfingur.tsv	News – sport	49628	2901	516	15	17.79%	A
+IGC-News1-vikudagur.tsv	News – local	49856	2701	482	0	17.85%	A
+IGC-Social2-silfuregils.tsv	Blog	49893	3112	556	54	17.87%	A
+IGC-Journals-hr.tsv	Scientific journals	49678	2416	439	25	18.17%	A
+IGC-News2-dfs.tsv	News – local	49901	2952	546	3	18.50%	A
+IGC-News1-trolli.tsv	News – local	49338	3068	570	10	18.58%	A
+IGC-News1-fjardarfrettir.tsv	News – local	49784	2779	523	2	18.82%	A
+IGC-News2-eyjan.tsv	News	49917	2593	494	3	19.05%	A
+IGC-News1-kopavogsbladid.tsv	News – local	49852	2885	552	1	19.13%	A
+IGC-Journals-ski.tsv	Scientific journals	35686	1911	371	24	19.41%	A
+IGC-Wiki.tsv	Wikipedia	49828	3489	696	5	19.95%	A
+IGC-News2-vf.tsv	News – local	49811	2887	591	3	20.47%	B
+IGC-News1-eyjafrettir.tsv	News – local	49853	2836	595	2	20.98%	B
+IGC-Social2-jonas.tsv	Blog	49858	4144	873	6	21.07%	B
+IGC-News2-bb.tsv	News – local	49603	2816	594	1	21.09%	B
+IGC-Journals-ri.tsv	Scientific journals	49956	2153	458	7	21.27%	B
+IGC-News1-kaffid.tsv	News – local	49827	2906	620	3	21.34%	B
+IGC-News2-pressan.tsv	News – specialized	49779	3036	648	3	21.34%	B
+IGC-Journals-ljo.tsv	Scientific journals	13633	620	137	2	22.10%	B
+IGC-News2-bleikt.tsv	News – specialized	49821	2909	678	14	23.31%	B
+IGC-News1-eyjar.tsv	News – local	49823	2871	679	2	23.65%	B
+IGC-Journals-ss.tsv	Scientific journals	24263	1080	263	46	24.35%	B
+IGC-News1-eidfaxi.tsv	News – sport	49503	3571	892	45	24.98%	B
+IGC-News1-huni.tsv	News – local	49799	2932	739	128	25.20%	B
+IGC-Journals-lf.tsv	Scientific journals	18580	870	221	62	25.40%	B
+IGC-News2-baendabladid.tsv	News – specialized	49688	2613	688	7	26.33%	B
+IGC-Journals-aif.tsv	Scientific journals	49728	2608	688	19	26.38%	B
+IGC-News2-433.tsv	News – sport	49698	3136	844	56	26.91%	B
+IGC-Journals-ith.tsv	Scientific journals	31729	1615	441	3	27.31%	B
+IGC-News2-frettatiminnbl.tsv	News	49495	2789	910	15	32.63%	B
+IGC-News2-kjarninnblad.tsv	News	49608	2546	844	12	33.15%	B
+IGC-News2-fotbolti.tsv	News – sport	49892	2741	931	36	33.97%	B
+IGC-News2-stundinserblad.tsv	News	1406	92	33	0	35.87%	B
+IGC-Journals-gr.tsv	Scientific journals	14076	900	338	36	37.56%	B
+IGC-Journals-im.tsv	Scientific journals	42790	2204	830	42	37.66%	B
+IGC-Parla.tsv	Parliamentary data	49592	2424	1050	7	43.32%	B
+IGC-Social1-malefnin.tsv	Online forum	49856	3360	1523	13	45.33%	C
+IGC-Social1-bland.tsv	Online forum	49583	3300	1893	15	57.36%	C
+IGC-Social1-hugi.tsv	Online forum	49682	3887	2506	138	64.47%	C

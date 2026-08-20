@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - '**'
+      # Model releases (tags like model-2026.08) only carry the
+      # trigrams.bin asset and don't produce a package release
+      - '!model-*'
 
 jobs:
   build_wheels:
@@ -14,10 +17,7 @@ jobs:
         os: [windows-latest, macos-14, ubuntu-latest]
 
     steps:
-      # Check out repository using git-lfs
       - uses: actions/checkout@v4
-        with:
-          lfs: true
 
       # Python used to run cibuildwheel
       - uses: actions/setup-python@v5
@@ -56,8 +56,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          lfs: true
 
       - uses: actions/setup-python@v5
         with:

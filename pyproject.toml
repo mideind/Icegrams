@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "icegrams"
-version = "1.1.7"
+version = "2.0.0"
 description = "Trigram statistics for Icelandic"
 authors = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
 maintainers = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
-readme = { file = "README.rst", content-type = "text/x-rst" }
+readme = { file = "README.md", content-type = "text/markdown" }
 license = "MIT"
 license-files = ["LICENSE.txt"]
 classifiers = [
@@ -51,7 +51,7 @@ dev = ["pytest", "ruff", "setuptools"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-icegrams = ["py.typed", "resources/*.bin"]
+icegrams = ["py.typed"]
 
 [tool.pytest.ini_options]
 filterwarnings = [

@@ -12,9 +12,9 @@
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
-14 million unique trigrams and their frequency counts are heavily compressed
+Over 78 million unique trigrams and their frequency counts are heavily compressed
 using radix tries and [quasi-succinct indexes](https://arxiv.org/abs/1206.4300)
-employing Elias-Fano encoding. This enables the ~43 megabyte compressed trigram file
+employing Elias-Fano encoding. This enables the ~213 megabyte compressed trigram file
 to be mapped directly into memory, with no *ex ante* decompression, for fast queries
 (typically ~10 microseconds per lookup).
 
@@ -28,7 +28,7 @@ also referring to
 (2014) regarding partitioned Elias-Fano indexes.
 
 You can use Icegrams to obtain probabilities (relative frequencies) of
-over a million different **unigrams** (single words or tokens), or of
+over 1.7 million different **unigrams** (single words or tokens), or of
 **bigrams** (pairs of two words or tokens), or of **trigrams**. You can also
 ask it to return the N most likely successors to any unigram or bigram.
 
@@ -36,16 +36,24 @@ Icegrams is useful for instance in spelling correction, predictive typing,
 to help disabled people write text faster, and for various text generation,
 statistics and modelling tasks.
 
-The Icegrams trigram corpus is built from the 2017 edition of the
-Icelandic Gigaword Corpus
-([Risamálheild](https://malheildir.arnastofnun.is/?mode=rmh2017)),
+The Icegrams trigram corpus is built from the Icelandic Gigaword Corpus
+([Risamálheild](https://repository.clarin.is/repository/xmlui/handle/20.500.12537/253)),
 which is collected and maintained by *The Árni Magnússon Institute*
-*for Icelandic Studies*. A mixed, manually vetted subset consisting of 157
-documents from the corpus was used as the source of the token stream,
-yielding over 100 million tokens. Trigrams that only occurred
-once or twice in the stream were eliminated before creating the
+*for Icelandic Studies*, supplemented by a corpus of recent news articles
+collected by Miðeind. A weighted sample of the corpora, containing about
+1 billion tokens of text from 1980 through July 2026, was used as the
+source of the token stream. Every sentence was corrected with Málfríður,
+Miðeind's neural spelling and grammar correction model. Trigrams that only
+occurred once in the stream were eliminated before creating the
 compressed Icegrams database. The creation process is further
-[described here](https://github.com/mideind/Icegrams/blob/master/doc/overview.md).
+[described here](https://github.com/mideind/Icegrams/blob/master/doc/2026-update.md);
+the previous (2019) model is described
+[here](https://github.com/mideind/Icegrams/blob/master/doc/overview.md).
+The 2019 model itself also remains available: it is bundled inside
+`icegrams` releases up to and including 1.1.6 on
+[PyPI](https://pypi.org/project/icegrams/1.1.6/), and can be retrieved
+from this repository's git history, where it was tracked via Git LFS as
+`src/icegrams/resources/trigrams.bin` until version 2.0.0.
 
 ## Example
 
@@ -54,36 +62,37 @@ compressed Icegrams database. The creation process is further
 >>> ng = Ngrams()
 >>> # Obtain the frequency of the unigram 'Ísland'
 >>> ng.freq("Ísland")
-42018
+708104
 >>> # Obtain the probability of the unigram 'Ísland', as a fraction
 >>> # of the frequency of all unigrams in the database
 >>> ng.prob("Ísland")
-0.0003979926900206475
+0.00023349672913028182
 >>> # Obtain the log probability (base e) of the unigram 'Ísland'
 >>> ng.logprob("Ísland")
--7.8290769196308005
+-8.362342488960794
 >>> # Obtain the frequency of the bigram 'Katrín Jakobsdóttir'
 >>> ng.freq("Katrín", "Jakobsdóttir")
-3517
+47918
 >>> # Obtain the probability of 'Jakobsdóttir' given 'Katrín'
 >>> ng.prob("Katrín", "Jakobsdóttir")
-0.23298013245033142
+0.1746471994635099
 >>> # Obtain the probability of 'Júlíusdóttir' given 'Katrín'
 >>> ng.prob("Katrín", "Júlíusdóttir")
-0.013642384105960274
+0.027305595241566307
 >>> # Obtain the frequency of 'velta fyrirtækisins er'
 >>> ng.freq("velta", "fyrirtækisins", "er")
-4
+15
 >>> # adj_freq returns adjusted frequencies, i.e incremented by 1
 >>> ng.adj_freq("xxx", "yyy", "zzz")
 1
 >>> # Obtain the N most likely successors of a given unigram or bigram,
 >>> # in descending order by log probability of each successor
 >>> ng.succ(10, "stjórnarskrá", "lýðveldisins")
-[('Íslands', -1.3708244393477589), ('.', -2.2427905461504567),
-    (',', -3.313814878299737), ('og', -3.4920631097060557), ('sem', -4.566577846795106),
-    ('er', -4.720728526622363), ('að', -4.807739903611993), ('um', -5.0084105990741445),
-    ('en', -5.0084105990741445), ('á', -5.25972502735505)]
+[('Íslands', -1.4328143767547825), ('.', -2.4118815147731096),
+    (',', -2.960989325110117), ('og', -3.4164648537929434), ('að', -4.693559922947841),
+    ('sem', -4.728651242759112), ('er', -5.016333315210893), ('í', -5.49590639547278),
+    ('en', -5.575949103146316), ('?', -5.575949103146316)]
+>>> ng.succ()
 ```
 
 ## Reference
@@ -100,6 +109,11 @@ ng = Ngrams()
 
 Now you can use the `ng` instance to query for unigram, bigram
 and trigram frequencies and probabilities.
+
+Note that the first time an `Ngrams` instance is created, the trigram
+model file is downloaded and cached, as described in the
+[Installation](#installation) section. This can take a few minutes on
+a slow connection; after that, initialization is fast.
 
 ### The Ngrams class
 
@@ -135,11 +149,11 @@ and trigram frequencies and probabilities.
 
   ```python
   >>>> ng.freq("stjórnarskrá")
-  2973
+  107427
   >>>> ng.freq("stjórnarskrá", "lýðveldisins")
-  39
+  3167
   >>>> ng.freq("stjórnarskrá", "lýðveldisins", "Íslands")
-  12
+  755
   >>>> ng.freq("xxx", "yyy", "zzz")
   0
   ```
@@ -173,11 +187,11 @@ and trigram frequencies and probabilities.
 
   ```python
   >>>> ng.adj_freq("stjórnarskrá")
-  2974
+  107428
   >>>> ng.adj_freq("stjórnarskrá", "lýðveldisins")
-  40
+  3168
   >>>> ng.adj_freq("stjórnarskrá", "lýðveldisins", "Íslands")
-  13
+  756
   >>>> ng.adj_freq("xxx", "yyy", "zzz")
   1
   ```
@@ -211,11 +225,11 @@ and trigram frequencies and probabilities.
 
   ```python
   >>>> ng.prob("stjórnarskrá")
-  2.8168929772755334e-05
+  3.542424727548586e-05
   >>>> ng.prob("stjórnarskrá", "lýðveldisins")
-  0.01344989912575655
+  0.02948951856126892
   >>>> ng.prob("stjórnarskrá", "lýðveldisins", "Íslands")
-  0.325
+  0.23863636363636387
   ```
 
 * `logprob(self, *args) -> float`
@@ -247,11 +261,11 @@ and trigram frequencies and probabilities.
 
   ```python
   >>>> ng.logprob("stjórnarskrá")
-  -10.477290968535172
+  -10.248114021011704
   >>>> ng.logprob("stjórnarskrá", "lýðveldisins")
-  -4.308783672906165
+  -3.523720381779265
   >>>> ng.logprob("stjórnarskrá", "lýðveldisins", "Íslands")
-  -1.1239300966523995
+  -1.4328143767547825
   ```
 
 * `succ(self, n, *args) -> list[tuple]`
@@ -273,12 +287,12 @@ and trigram frequencies and probabilities.
 
   ```python
   >>>> ng.succ(2, "stjórnarskrá")
-  [('.', -1.8259625296091855), ('landsins', -2.223111581475692)]
+  [('.', -1.8955821526777576), ('og', -2.45003747615368)]
   >>>> ng.succ(2, "stjórnarskrá", "lýðveldisins")
-  [('Íslands', -1.1239300966523995), ('og', -1.3862943611198904)]
+  [('Íslands', -1.4328143767547825), ('.', -2.4118815147731096)]
   >>>> # The following is equivalent to ng.succ(2, "lýðveldisins", "Íslands")
   >>>> ng.succ(2, "stjórnarskrá", "lýðveldisins", "Íslands")
-  [('.', -1.3862943611198908), (',', -1.6545583477145702)]
+  [(',', -1.799606749884445), ('nr.', -1.8759797286690185)]
   ```
 
 ## Notes
@@ -348,6 +362,19 @@ To install this package:
 pip install icegrams
 ```
 
+The trigram model file (~213 MB) is not included in the package itself.
+It is downloaded automatically from a GitHub release of this repository
+the first time an `Ngrams` instance is created, and cached locally
+(on Linux typically in `~/.cache/icegrams/`). Subsequent uses read the
+cached file. The following environment variables can override this
+behavior:
+
+* `ICEGRAMS_MODEL_DIR`: directory in which to cache the downloaded model.
+* `ICEGRAMS_MODEL_FILE`: path of an existing model file to use directly,
+  skipping the download entirely (useful for offline or air-gapped
+  environments).
+* `ICEGRAMS_MODEL_URL`: alternative URL to download the model from.
+
 If you want to be able to edit the source, do like so (assuming you have **git** installed):
 
 ```bash
@@ -371,6 +398,11 @@ python -m pytest
 
 ## Changelog
 
+* Version 2.0.0: New trigram model built from a ~1 billion word corpus
+  (IGC-2022 and IGC-2024ext plus recent news through July 2026), corrected
+  with Miðeind's Málfríður neural spelling and grammar correction model.
+  The model file is no longer bundled in the package; it is downloaded
+  from a GitHub release on first use and cached locally. (2026-08-20)
 * Version 1.1.6: Added abi3 wheel support for smaller release size. (2025-12-12)
 * Version 1.1.5: Fixed PEP 561 compliance (py.typed). Fixed ruff linting in CI. (2025-12-12)
 * Version 1.1.4: Added support for Python 3.14 and Windows. Improved CI with PyPI trusted publishing. (2025-12-12)
@@ -385,7 +417,7 @@ python -m pytest
 
 ## Copyright and licensing
 
-Icegrams is Copyright © 2020-2025 [Miðeind ehf.](https://mideind.is).
+Icegrams is Copyright © 2020-2026 [Miðeind ehf.](https://mideind.is).
 The original author of this software is *Vilhjálmur Þorsteinsson*.
 
 This software is licensed under the **MIT License**:

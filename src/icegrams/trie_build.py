@@ -4,7 +4,7 @@ Icegrams: A trigrams library for Icelandic
 
 CFFI builder for _trie module
 
-Copyright (C) 2019-2025 Miðeind ehf.
+Copyright (C) 2019-2026 Miðeind ehf.
 Original author: Vilhjálmur Þorsteinsson
 
 This software is licensed under the MIT License:

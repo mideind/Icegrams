@@ -4,7 +4,7 @@ Icegrams: A trigrams library for Icelandic
 
 ngrams.py
 
-Copyright (C) 2019-2025 Miðeind ehf.
+Copyright (C) 2019-2026 Miðeind ehf.
 Original author: Vilhjálmur Þorsteinsson
 
 This software is licensed under the MIT License:
@@ -135,23 +135,16 @@ import gzip
 
 _PATH = os.path.dirname(__file__) or "."
 TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
-BINARY_FILENAME = ""
+# Output path of the compressor (see __main__ below). At query time,
+# the model file is located - and downloaded on first use - by
+# download.model_filename() instead.
+BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
 from ._trie import lib as trie_cffi, ffi  # type: ignore  # noqa: E402
 from .trie import Trie  # noqa: E402
-
-if __name__ == "__main__":
-    BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin") # pyright: ignore[reportConstantRedefinition]
-else:
-    # Imported as a package
-    # Make sure that the trigrams.bin file is
-    # unpacked and ready for use
-    import importlib.resources as importlib_resources
-
-    ref = importlib_resources.files("icegrams").joinpath("resources", "trigrams.bin")
-    BINARY_FILENAME = str(ref) # pyright: ignore[reportConstantRedefinition]
+from .download import model_filename  # noqa: E402
 
 ffi: Any = cast(Any, ffi)
 trie_cffi: Any = cast(Any, trie_cffi)
@@ -196,7 +189,7 @@ class Ngrams:
 
     def __init__(self) -> None:
         self.ngrams: NgramStorage = NgramStorage()
-        self.ngrams.load(BINARY_FILENAME)
+        self.ngrams.load(model_filename())
 
     def __contains__(self, word: str) -> bool:
         """Return True if the word exists as a unigram"""

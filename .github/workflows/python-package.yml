@@ -16,8 +16,14 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    # The trigram model is downloaded on first use by the icegrams
+    # package itself; cache it between runs. The cache key includes
+    # download.py so that a model version bump invalidates the cache.
+    - name: Cache the trigrams model
+      uses: actions/cache@v4
       with:
-        lfs: true
+        path: ~/.cache/icegrams
+        key: icegrams-model-${{ hashFiles('src/icegrams/download.py') }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
