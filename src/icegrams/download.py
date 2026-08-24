@@ -47,6 +47,7 @@ environment variable, and the download source with ICEGRAMS_MODEL_URL.
 
 import hashlib
 import os
+import ssl
 import sys
 import tempfile
 import urllib.error
@@ -101,6 +102,21 @@ def model_dir() -> str:
     return os.path.join(_default_cache_dir(), MODEL_RELEASE_TAG)
 
 
+def _ssl_context() -> ssl.SSLContext:
+    """A TLS context that uses certifi's CA bundle when available.
+    Some Python installations (notably the python.org installers on
+    macOS) ship without CA certificates wired up, making every stdlib
+    HTTPS request fail with CERTIFICATE_VERIFY_FAILED."""
+    ctx = ssl.create_default_context()
+    try:
+        import certifi
+
+        ctx.load_verify_locations(certifi.where())
+    except ImportError:
+        pass
+    return ctx
+
+
 def _download(url: str, dest: str, verify_checksum: bool) -> None:
     """Download the model file from url to dest, atomically"""
     dest_dir = os.path.dirname(dest)
@@ -121,7 +137,7 @@ def _download(url: str, dest: str, verify_checksum: bool) -> None:
     try:
         with os.fdopen(tmp_fd, "wb") as tmp:
             try:
-                with urllib.request.urlopen(url) as response:
+                with urllib.request.urlopen(url, context=_ssl_context()) as response:
                     total = int(response.headers.get("Content-Length") or 0)
                     while True:
                         chunk = response.read(_CHUNK_SIZE)
