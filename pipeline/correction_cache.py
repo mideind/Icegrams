@@ -144,7 +144,7 @@ def introduces_new_script(original: str, corrected: str) -> bool:
     wasn't present anywhere in `original` -- verified against a real
     failure when Málfríður mangled an Armenian-script name fragment
     into nonsense Hebrew-range characters. Just a sanity check that
-    may catch a few other cases garbled text."""
+    may catch a few other cases of garbled text."""
     orig_scripts = {_char_script(c) for c in original} - {"COMMON"}
     corr_scripts = {_char_script(c) for c in corrected} - {"COMMON"}
     return bool(corr_scripts - orig_scripts)
