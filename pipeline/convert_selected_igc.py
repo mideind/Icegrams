@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/convert_selected_igc.py
+pipeline/convert_selected_igc.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -30,18 +30,9 @@ This software is licensed under the MIT License:
 
 
 Converts an arbitrary list of selected IGC TEI-XML files -- e.g. the
-output of utils/select_pilot_corpus.py -- into sharded JSONL in the
-same document/metadata.sentences shape utils/malfridur_api_correct.py
+output of pipeline/select_pilot_corpus.py -- into sharded JSONL in the
+same document/metadata.sentences shape pipeline/malfridur_api_correct.py
 consumes.
-
-This is needed because Þórunn's IGC-converter (convert_IGC.py) only
-knows how to convert an entire subcorpus directory at once (it walks
-every site/year/file under a subcorpus root itself); it has no notion
-of "convert just these N files out of the corpus". The per-file
-conversion logic it's built on (XMLToJsonlConverter.convert_to_jsonl)
-already takes a single file path, though, so this script reuses that
-directly and does the file-list iteration and sharding itself, instead
-of duplicating any TEI-parsing logic.
 
 """
 
@@ -54,12 +45,11 @@ import os
 import re
 import sys
 
-# Local copy of Thorunn's scripts/convert_xml.py (see igc_converter_scripts/),
-# copied once into this repo rather than importing live from her scratch
-# directory on every run.
-_UTILS_DIR = os.path.dirname(os.path.realpath(__file__))
-if _UTILS_DIR not in sys.path:
-    sys.path.insert(0, _UTILS_DIR)
+# The CLARIN-published IGC JSONL converter, included in this repo --
+# see igc_converter_scripts/convert_xml.py for provenance and licensing.
+_SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+if _SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPT_DIR)
 
 from igc_converter_scripts import XMLToJsonlConverter  # noqa: E402
 

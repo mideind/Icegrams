@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/select_recent_news_slice.py
+pipeline/select_recent_news_slice.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -30,16 +30,8 @@ This software is licensed under the MIT License:
 
 
 Draws a word-budgeted slice from the already-converted recent-news
-corpus (utils/convert_recent_news.py's output), sampling uniformly at
-random across the whole 2024-2026 span -- no recency weighting within
-this source. An earlier version of this script applied a 180-day
-recency half-life, which turned out to be a much steeper bias than the
-main pilot's own recency weighting (select_pilot_corpus.py uses an
-8-year half-life across IGC's decades-spanning history): over the same
-~2-year gap, an 8-year half-life gives a ~16% weight difference, while
-180 days gives a ~94% difference. Rather than invent a shorter half-life
-just for this one source, sampling here is uniform, consistent with
-how short a span this source actually covers.
+corpus (pipeline/convert_recent_news.py's output), sampling uniformly at
+random across the whole 2024-2026 span.
 
 """
 

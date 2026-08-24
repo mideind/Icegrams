@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/select_pilot_corpus.py
+pipeline/select_pilot_corpus.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -67,7 +67,7 @@ import xml.etree.ElementTree as ET
 XML_NS = "{http://www.tei-c.org/ns/1.0}"
 
 # Directory-nesting type for each subcorpus, taken from
-# Þórunn's IGC-converter (convert_IGC.py: `corpus_types`), since the
+# the IGC-converter (convert_IGC.py: `corpus_types`), since the
 # manifest walk has to match the same on-disk layout the converter expects.
 #   Type 1: <root>/<subcorpus>-<version>.TEI/<site>/<year>/<file>.xml
 #   Type 2: <root>/<subcorpus>-<version>.TEI/<year>/<file>.xml   (no site level)
@@ -100,7 +100,7 @@ LEGACY_EXCLUDED_SITES = {
 # For years where both sides of a pair are present, "primary" is kept
 # and "secondary"'s copy for those years is dropped. Not always print
 # vs. web -- "primary" is whichever side is actually the fuller record
-# for that outlet (checked against real word/doc counts, 2026-07-31):
+# for that outlet:
 DUPLICATE_RISK_PAIRS = [
     {"primary": ("News2", "morgunbladid"), "secondary": ("News2", "mbl")},
     {"primary": ("News2", "kjarninn"), "secondary": ("News2", "kjarninn_blad")},
@@ -368,7 +368,7 @@ def filter_docs(
 
 def recency_weight(year: Optional[int], current_year: int, half_life: float) -> float:
     if year is None:
-        # Undated pools (e.g. Wiki) get a flat, medium weight
+        # Undated pools (Wiki) get a flat, medium weight
         return 0.5
     age = max(0, current_year - year)
     return 0.5 ** (age / half_life)
@@ -391,13 +391,10 @@ def sample_to_budget(
     and higher weight means higher expected priority.
 
     max_site_share caps how much a single (corpus, site) can contribute
-    (e.g. 0.15 = at most 15%). Without this, a handful of giant
+    (e.g. 0.1 = at most 10%). Without this, a handful of giant
     single-site-year units can swallow most of the budget before
     smaller sites ever get a chance. The cap is a share of
-    cap_total_words when given, else of target_words: with pinning,
-    target_words is only the residual fill budget while site totals are
-    seeded at full-selection scale, so the cap must be computed against
-    the full selection size.
+    cap_total_words when given, else of target_words.
     """
     units: Dict[Tuple[str, str, Any], List[Doc]] = {}
     for doc in docs:
@@ -503,7 +500,7 @@ def main() -> None:
     print_summary("Full scanned pool", docs)
 
     filtered = filter_docs(docs, args.min_year)
-    print_summary("After grisjun (year/exclusion-list/dedup filters)", filtered)
+    print_summary("After filtering (year/exclusion-list/dedup)", filtered)
 
     max_site_share = args.max_site_share if args.max_site_share < 1.0 else None
 
@@ -518,7 +515,7 @@ def main() -> None:
         if missing:
             print(
                 f"Warning: {missing:,} pinned path(s) from {args.pin_selected} "
-                "were not found in the current filtered pool (grisjun rules or "
+                "were not found in the current filtered pool (filtering rules or "
                 "source data may have changed) and will be dropped"
             )
         print_summary("Pinned (carried over unconditionally)", pinned)

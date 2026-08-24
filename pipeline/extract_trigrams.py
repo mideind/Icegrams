@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/extract_trigrams.py
+pipeline/extract_trigrams.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -30,26 +30,18 @@ This software is licensed under the MIT License:
 
 
 This utility replaces the tokenize-and-count stage of 2019's rmh.py
-(since removed from the repo -- see git history) for the new pipeline.
+(see git history) for the new pipeline.
 Two things changed from 2019:
 
   1. Spelling/amalgam correction now happens upstream, sentence by
-     sentence, via Málfríður (utils/malfridur_api_correct.py), so the
-     correct.txt/delete.txt/split.txt word-list correction in rmh.py's
-     handle_word() is gone -- there is nothing left for it to fix. The
-     Tokenizer-level normalization (numbers, dates, amounts, percentages,
-     ordinals, phone numbers, e-mails, URLs, hashtags, handles ->
-     [NUMBER]/[AMOUNT]/etc. placeholders) is unrelated to that and is
-     kept as-is.
+     sentence, via Málfríður (pipeline/malfridur_api_correct.py).
 
   2. Trigram counting no longer goes through PostgreSQL upserts, which
      do not scale to this corpus size (one round trip per trigram
      occurrence). Instead each shard is counted independently in memory
      with collections.Counter and flushed to a partial (t1, t2, t3,
-     count) TSV file. utils/merge_trigram_counts.py then merges the
-     partials into one (t1, t2, t3, total_count) TSV -- which is already
-     exactly the 4-column format src/icegrams/ngrams.py's read_tsv
-     expects, so no database is needed at any point in this stage.
+     count) TSV file. pipeline/merge_trigram_counts.py then merges the
+     partials into one (t1, t2, t3, total_count) TSV.
 
 Input: the sentence-level JSONL shards written by malfridur_api_correct.py
 (one line per sentence: doc_uuid, xml_id, sent_idx, corrected, status).
@@ -73,13 +65,12 @@ from tokenizer import tokenize, Tok, TOK
 
 
 # 2019's static word-list correction (correct.txt/delete.txt/split.txt),
-# loaded from src/icegrams/resources/, where those lists live.
+# loaded from static_corrections/ next to this script.
 # Off by default (correction now normally happens upstream via Málfríður,
 # or not at all in --skip-correction test runs) -- enable with
-# --static-word-correction for a quick, local, no-API comparison of what
-# the old 2019-style correction alone does to a corpus.
+# --static-word-correction for a quick, local, no-API correction.
 STATIC_CORRECTION_RESOURCES = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.realpath(__file__))), "src", "icegrams", "resources"
+    os.path.dirname(os.path.realpath(__file__)), "static_corrections"
 )
 STATIC_CORRECTION_ENABLED = False
 CHANGING: Set[str] = set()
@@ -233,7 +224,7 @@ def main() -> None:
     parser.add_argument(
         "--static-word-correction",
         action="store_true",
-        help="Apply 2019's static correct.txt/delete.txt/split.txt word-list correction "
+        help="Apply static correct.txt/delete.txt/split.txt word-list correction "
         "(local, no API) instead of a plain passthrough",
     )
     args = parser.parse_args()
@@ -289,7 +280,7 @@ def main() -> None:
     print(
         "\nNext step -- merge all partial counts into the final "
         "(t1, t2, t3, frequency) .tsv that ngrams.py's compressor expects:\n"
-        f"  python3 utils/merge_trigram_counts.py '{args.output_dir}/*.trigrams.tsv' "
+        f"  python3 pipeline/merge_trigram_counts.py '{args.output_dir}/*.trigrams.tsv' "
         "-o trigrams_final.tsv"
     )
 

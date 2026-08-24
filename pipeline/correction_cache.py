@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/correction_cache.py
+pipeline/correction_cache.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -28,12 +28,10 @@ This software is licensed under the MIT License:
     TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-
-The shared, dependency-light pieces of the Málfríður correction pipeline:
-a SQLite original->corrected sentence cache, correction validation, and
-sentence extraction from an IGC-converter JSONL document. No network
-calls and no API key needed -- used by malfridur_api_correct.py, the
-API-calling correction runner.
+Building blocks for the Málfríður correction step: a SQLite cache of
+original -> corrected sentences, validation of corrections, and sentence
+extraction from converted JSONL documents. Used by
+malfridur_api_correct.py.
 
 """
 
@@ -123,7 +121,7 @@ class CorrectionCache:
         self.conn.close()
 
 
-# Punctuation/digits Malfridur commonly introduces as part of a
+# Punctuation/digits Málfríður might introduce as part of a
 # legitimate correction (quote-style normalization, dash/ellipsis
 # normalization, etc.) -- excluded from the script check below so
 # these don't get misread as "a new writing system appeared".
@@ -144,11 +142,9 @@ def _char_script(ch: str) -> str:
 def introduces_new_script(original: str, corrected: str) -> bool:
     """True if `corrected` contains characters from a script that
     wasn't present anywhere in `original` -- verified against a real
-    failure: Malfridur once mangled an Armenian-script name fragment
-    into nonsense Hebrew-range characters, well within the normal
-    length-ratio bounds and untouched by any quote-balance check, so
-    nothing else here would have caught it. A correction should never
-    need to introduce a whole new writing system into the text."""
+    failure when Málfríður mangled an Armenian-script name fragment
+    into nonsense Hebrew-range characters. Just a sanity check that
+    may catch a few other cases garbled text."""
     orig_scripts = {_char_script(c) for c in original} - {"COMMON"}
     corr_scripts = {_char_script(c) for c in corrected} - {"COMMON"}
     return bool(corr_scripts - orig_scripts)

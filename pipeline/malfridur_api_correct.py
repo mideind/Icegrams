@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/malfridur_api_correct.py
+pipeline/malfridur_api_correct.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -30,8 +30,8 @@ This software is licensed under the MIT License:
 
 
 Runs Málfríður grammar correction over the sentences of an IGC-converter
-JSONL corpus (see utils/select_pilot_corpus.py and the IGC-converter
-under utils/igc_converter_scripts/), at the throughput needed to process
+JSONL corpus (see pipeline/select_pilot_corpus.py and the IGC-converter
+under pipeline/igc_converter_scripts/), at the throughput needed to process
 hundreds of millions of sentences. Requires a Málfríður API key. Without
 one, the rest of the pipeline can still be run via --skip-correction here,
 or extract_trigrams.py --static-word-correction as a fallback.
@@ -40,34 +40,21 @@ Design, in three layers:
 
   1. correction_cache.CorrectionCache: a SQLite-backed original-sentence
      -> corrected-sentence store, grown by every run so no sentence is
-     ever sent to the API twice across the whole project. A flat text
-     file would force a full linear rescan per lookup; SQLite gives
-     O(log n) lookups and lets multiple shard workers share one cache
-     file safely (WAL mode).
+     ever sent to the API twice across the whole project.
 
   2. BatchCorrector: an async client that batches many sentences per
-     HTTP call to the Málfríður staging endpoint, runs many calls
+     HTTP call to the Málfríður API, runs many calls
      concurrently (bounded by a semaphore), retries transient failures
      with backoff, and validates each result (see correction_cache.py)
      before accepting it -- falling back to the original sentence
      otherwise. Sentences are grouped into batches by byte length before
-     sending, since the underlying model pads every item in a batch to
-     the longest member (server.py: padding="longest"): mixing very
-     short and very long sentences in one batch wastes GPU time on
-     padding, so batches are filled from within narrow length bands.
+     sending.
 
   3. process_shard(): drives one shard (one IGC-converter JSONL file) of
      documents through cache lookup -> batch correction -> validation,
-     and writes ONE OUTPUT LINE PER SENTENCE (not a reconstructed
+     and writes one output line per sentence (not a reconstructed
      document) with full provenance. A small per-shard state file makes
      reruns resumable: a shard already marked done is skipped outright.
-
-Byte-length limit: the Málfríður model is byte-level (ByT5-style) with
-max_length=512 (model_servers/malfridur/server.py); anything longer is
-silently truncated by the tokenizer. Sentences over MAX_SENTENCE_BYTES
-are therefore never sent to the API -- they pass through uncorrected,
-flagged as "too_long" in the output, so the omission is visible rather
-than silently baked into a truncated correction.
 
 """
 
@@ -85,16 +72,10 @@ import httpx
 from correction_cache import CorrectionCache, extract_sentences, validate_correction
 
 
-PRODUCTION_API_URL = "https://api.mideind.is/grammar_nn/"
-STAGING_API_URL = "https://staging.api.mideind.is/grammar_nn/"
-# The API key has been seen under several names in this codebase's history
-# (text_processor.py uses MALSTADUR_STAGING_KEY; the icegrams/.env file
-# has both MALSTADUR_API_KEY for production and MALSTADUR_STAGING_API_KEY
-# for staging) -- accept any of them, staging key checked first since
-# staging is the intended target for bulk correction.
-API_KEY_ENVS = ("MALSTADUR_STAGING_API_KEY", "MALSTADUR_STAGING_KEY", "MALSTADUR_API_KEY")
+API_URL = "https://api.mideind.is/grammar_nn/"
+API_KEY_ENV = "MALSTADUR_API_KEY"
 
-# Safety margin under the model's 512-byte max_length (byte-level tokenizer)
+# Safety margin under the model's 512-byte max_length
 MAX_SENTENCE_BYTES = 480
 
 
@@ -113,7 +94,7 @@ class BatchCorrector:
     def __init__(
         self,
         api_key: str,
-        api_url: str = STAGING_API_URL,
+        api_url: str = API_URL,
         concurrency: int = 8,
         batch_size: int = 16,
         timeout: float = 50.0,
@@ -166,16 +147,16 @@ class BatchCorrector:
                 status = ex.response.status_code
                 if status != 429 and status < 500:
                     # Non-retryable client error (bad/expired key, bad request, etc.)
-                    print(f"Malfridur batch failed (HTTP {status}, not retrying): {ex}")
+                    print(f"Málfríður batch failed (HTTP {status}, not retrying): {ex}")
                     return None
                 if attempt == self.max_retries - 1:
-                    print(f"Malfridur batch failed after retries: {ex}")
+                    print(f"Málfríður batch failed after retries: {ex}")
                     return None
                 await asyncio.sleep(delay)
                 delay *= 2
             except (httpx.HTTPError, ValueError) as ex:
                 if attempt == self.max_retries - 1:
-                    print(f"Malfridur batch failed after retries: {ex}")
+                    print(f"Málfríður batch failed after retries: {ex}")
                     return None
                 await asyncio.sleep(delay)
                 delay *= 2
@@ -218,10 +199,9 @@ async def process_shard(
     cache lookups and no API calls at all. This is for end-to-end
     pipeline tests (corpus selection -> conversion -> trigram
     extraction -> compression) that don't want to wait on or consume
-    Malfridur capacity.
+    Málfríður capacity.
 
-    cache_only=True looks sentences up in the cache (e.g. one already
-    populated from a colleague's externally-run corrections) but never
+    cache_only=True looks sentences up in the cache but never
     calls the API for a miss -- those pass through unchanged with
     status "not_cached", rather than requiring an API key that this
     mode has no use for.
@@ -373,14 +353,9 @@ async def run(args: argparse.Namespace) -> None:
 
     corrector: Optional[BatchCorrector] = None
     if not args.skip_correction and not args.cache_only:
-        api_key = args.api_key
+        api_key = args.api_key or os.getenv(API_KEY_ENV)
         if not api_key:
-            for env_name in API_KEY_ENVS:
-                api_key = os.getenv(env_name)
-                if api_key:
-                    break
-        if not api_key:
-            raise SystemExit(f"No API key: set one of {API_KEY_ENVS} or pass --api-key")
+            raise SystemExit(f"No API key: set {API_KEY_ENV} or pass --api-key")
 
         corrector = BatchCorrector(
             api_key=api_key,
@@ -437,8 +412,8 @@ def main() -> None:
     parser.add_argument("--api-key", default=None)
     parser.add_argument(
         "--api-url",
-        default=STAGING_API_URL,
-        help=f"default {STAGING_API_URL}; production is {PRODUCTION_API_URL}",
+        default=API_URL,
+        help=f"Málfríður API endpoint (default {API_URL})",
     )
     parser.add_argument("--concurrency", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=16)

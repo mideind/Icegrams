@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/merge_trigram_counts.py
+pipeline/merge_trigram_counts.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -30,15 +30,14 @@ This software is licensed under the MIT License:
 
 
 Merges the per-shard partial trigram counts written by
-utils/extract_trigrams.py into one (t1, t2, t3, frequency) .tsv file,
+pipeline/extract_trigrams.py into one (t1, t2, t3, frequency) .tsv file,
 summing counts for trigrams that appear in more than one shard.
 
 This uses the external `sort` command (merge sort with spill-to-disk),
 not an in-memory hash map, so it scales to however many distinct
-trigrams the full corpus produces without needing a database -- unlike
-2019's PostgreSQL upsert table, this never needs more memory than
-`sort`'s buffer size regardless of corpus size. The output is already
-in the exact 4-column format src/icegrams/ngrams.py's read_tsv expects.
+trigrams the full corpus produces without needing a database.
+The output is already in the 4-column format 
+src/icegrams/ngrams.py's read_tsv expects.
 
 """
 

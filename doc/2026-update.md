@@ -49,8 +49,8 @@ We sample a subset from that pool (~1 billion words for this model), as describe
 Step 1: Corpus selection
 ------------------------------------
 
-Script: `utils/select_pilot_corpus.py` (for IGC) and
-`utils/select_recent_news_slice.py` (for recent news).
+Script: `pipeline/select_pilot_corpus.py` (for IGC) and
+`pipeline/select_recent_news_slice.py` (for recent news).
 
 The selection criteria are implemented in code so they can be re-run, adjusted, and audited:
 
@@ -84,14 +84,14 @@ The selection criteria are implemented in code so they can be re-run, adjusted, 
 Step 2: Converting the raw files
 -----------------------------------
 
-Scripts: `utils/convert_selected_igc.py`, `utils/convert_recent_news.py`, using `utils/igc_converter_scripts/` (see [Licensing](#licensing-and-open-source-notes) for where this converter comes from).
+Scripts: `pipeline/convert_selected_igc.py`, `pipeline/convert_recent_news.py`, using `pipeline/igc_converter_scripts/` (see [Licensing](#licensing-and-open-source-notes) for where this converter comes from).
 
 The IGC's raw files are in a structured XML format (TEI-XML), one file per document, with sentence and paragraph boundaries marked as positions within the document's text. This step converts each document into a simpler format: one JSON object per document, with the full text plus the list of sentences already split out. Recent-news articles go through a similar but separate conversion.
 
 Step 3: Correcting spelling and grammar
 -------------------------------------------
 
-Script: `utils/malfridur_api_correct.py`.
+Script: `pipeline/malfridur_api_correct.py`.
 
 The 2019 model corrected a fixed list of about 2,850 known misspellings and 369 "amalgam" errors (two words wrongly joined or split), applied by hand-written SQL.
 
@@ -104,7 +104,7 @@ A few practical points about how this step works:
 Step 4: Counting trigrams
 -----------------------------
 
-Scripts: `utils/extract_trigrams.py`, `utils/merge_trigram_counts.py`.
+Scripts: `pipeline/extract_trigrams.py`, `pipeline/merge_trigram_counts.py`.
 
 Once the text is corrected, it's tokenized (numbers, dates, URLs, and similar are replaced with placeholder tokens, same as 2019) and split into overlapping windows of three consecutive words (trigrams), which are counted.
 
@@ -113,7 +113,7 @@ Once the text is corrected, it's tokenized (numbers, dates, URLs, and similar ar
 Step 5: Choosing a frequency cutoff and building the model file
 ---------------------------------------------------------------------
 
-Script: `utils/bucket_view.py`, then `icegrams.ngrams.NgramStorage.compress()`
+Script: `pipeline/bucket_view.py`, then `icegrams.ngrams.NgramStorage.compress()`
 (the existing, unchanged compressor from the original Icegrams library).
 
 Not every trigram that was ever counted is worth keeping &mdash; many of the lowest-frequency ones are typos, one-off phrases, or noise, and including them all would make the model file much larger for very little benefit.
@@ -158,26 +158,26 @@ We also tested a stricter freq>=3 cutoff on the 1B, Málfríður-corrected corpu
 Reproducing this pipeline
 -----------------------------
 
-All scripts live under `utils/` in this repository. A full run looks like:
+All scripts live under `pipeline/` in this repository. A full run looks like:
 
 ```
 # 1. Choose which text to include
-python3 utils/select_pilot_corpus.py --target-words 900_000_000
-python3 utils/select_recent_news_slice.py <recent-news-glob> --target-words 100_000_000
+python3 pipeline/select_pilot_corpus.py --target-words 900_000_000
+python3 pipeline/select_recent_news_slice.py <recent-news-glob> --target-words 100_000_000
 
 # 2. Convert raw files to a common per-sentence format
-python3 utils/convert_selected_igc.py ...
-python3 utils/convert_recent_news.py ...
+python3 pipeline/convert_selected_igc.py ...
+python3 pipeline/convert_recent_news.py ...
 
 # 3. Correct spelling and grammar (resumable, cached)
-python3 utils/malfridur_api_correct.py ...
+python3 pipeline/malfridur_api_correct.py ...
 
 # 4. Count trigrams and merge partial counts
-python3 utils/extract_trigrams.py ...
-python3 utils/merge_trigram_counts.py ...
+python3 pipeline/extract_trigrams.py ...
+python3 pipeline/merge_trigram_counts.py ...
 
 # 5. Inspect frequency buckets and export the cutoff>=2 model
-python3 utils/bucket_view.py ...
+python3 pipeline/bucket_view.py ...
 ```
 
 Each script accepts `--help` for its full list of options (word budgets, recency half-life, per-site cap, cutoff values, and so on). Every stage that processes many files writes a marker file per completed piece of work, so an interrupted run can simply be started again rather than restarted from scratch.
@@ -185,5 +185,5 @@ Each script accepts `--help` for its full list of options (word budgets, recency
 Licensing and open-source notes
 ------------------------------------
 
-- `utils/igc_converter_scripts/` and the subcorpus categorization file used for processing the IGC corpus are a published resource available from CLARIN ("Icelandic Gigaword Corpus JSONL Converter", https://repository.clarin.is/repository/xmlui/handle/20.500.12537/336), funded under Iceland's "Language Technology for Icelandic 2019-2023" government initiative.
+- `pipeline/igc_converter_scripts/` and the subcorpus categorization file used for processing the IGC corpus are a published resource available from CLARIN ("Icelandic Gigaword Corpus JSONL Converter", https://repository.clarin.is/repository/xmlui/handle/20.500.12537/336), funded under Iceland's "Language Technology for Icelandic 2019-2023" government initiative.
 - `malfridur_api_correct.py` calls Miðeind's Málfríður API, which requires an API key. Users without one can substitute 2019's static word-list correction instead, via `extract_trigrams.py --static-word-correction`.

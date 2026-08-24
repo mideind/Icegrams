@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/bucket_view.py
+pipeline/bucket_view.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -29,25 +29,20 @@ This software is licensed under the MIT License:
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-This replaces the ad hoc SQL bucket-view analysis from the 2019 model
-(doc/overview.md, step 5-6). It reads
-the final merged (t1, t2, t3, frequency) .tsv from
-utils/merge_trigram_counts.py and does two things in one pass:
+This replaces the SQL bucket-view analysis from the 2019 model
+(doc/overview.md, step 5-6). It reads the final merged 
+(t1, t2, t3, frequency) .tsv from pipeline/merge_trigram_counts.py
+and does two things in one pass:
 
   1. Prints a bucket view: for each frequency lower bound, how many
      distinct trigrams fall in that bucket, as a percentage of all
      distinct trigrams, cumulatively -- plus, unlike 2019's table, the
      cumulative share of total trigram OCCURRENCES retained at each
-     cutoff (2019 quoted this figure prose-side for their chosen
-     cutoff; here it's given for every candidate cutoff so the decision
-     is data-driven instead of a one-off calculation).
+     cutoff.
 
   2. Given one or more --cutoff values, writes one filtered .tsv per
      cutoff (trigrams with frequency >= cutoff), each already in the
-     4-column format src/icegrams/ngrams.py's compressor expects. This
-     is how the small/fast and big models are both derived from a
-     single corrected-and-counted corpus: same input file, two cutoffs,
-     two output .tsv files, no separate pipeline run needed.
+     4-column format src/icegrams/ngrams.py's compressor expects.
 
 """
 

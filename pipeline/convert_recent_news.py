@@ -3,7 +3,7 @@
 
 Icegrams: A trigrams library for Icelandic
 
-utils/convert_recent_news.py
+pipeline/convert_recent_news.py
 
 Copyright (C) 2019-2026 Miðeind ehf
 
@@ -29,8 +29,8 @@ This software is licensed under the MIT License:
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-Adapts the 2023-2026 "recent news" supplementary corpus (a flat JSONL
-of scraped articles, one per line, e.g.:
+Adapts the supplementary corpus of recent news articles, collected by
+Miðeind (a flat JSONL of parsed articles, one per line, e.g.:
 
   {"id": ..., "url": ..., "source_domain": ..., "source_name": ...,
    "title": ..., "byline": ..., "published_at": ..., "authority": ...,
@@ -38,15 +38,10 @@ of scraped articles, one per line, e.g.:
 
 ) into the same shape the IGC-converter produces (a "document" string
 plus metadata.sentences offsets), so it can be fed into
-utils/malfridur_api_correct.py unchanged, without going through the
-TEI-XML conversion step at all -- this source is neither RMH nor
-IGC, so utils/select_pilot_corpus.py doesn't apply to it either.
+pipeline/malfridur_api_correct.py unchanged.
 
 The "text" field is already pre-segmented: one sentence per line,
-paragraphs separated by a blank line. That means Tokenizer's
-split_into_sentences (used by the IGC-converter for TEI-XML) isn't
-needed here -- sentence boundaries can be read directly off the
-existing line structure.
+paragraphs separated by a blank line.
 
 """
 
@@ -76,9 +71,7 @@ SOFT_HYPHEN = "­"
 
 
 def convert_article(article: Dict[str, Any]) -> Dict[str, Any]:
-    # Soft hyphens (line-wrap hints from the source CMS, mostly visir.is
-    # and vb.is headlines) survive verbatim in the scrape and would
-    # otherwise split words like "fjöl­skyldu" into spurious tokens.
+    # Clean up soft hyphens present in some headlines.
     title = (article.get("title") or "").strip().replace(SOFT_HYPHEN, "")
     text = (article.get("text") or "").replace(SOFT_HYPHEN, "")
     if title:
