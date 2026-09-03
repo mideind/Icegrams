@@ -111,10 +111,10 @@ ng = Ngrams()
 Now you can use the `ng` instance to query for unigram, bigram
 and trigram frequencies and probabilities.
 
-Note that the first time an `Ngrams` instance is created, the trigram
-model file is downloaded and cached, as described in the
-[Installation](#installation) section. This can take a few minutes on
-a slow connection; after that, initialization is fast.
+Note that the trigram model file must be downloaded once before an
+`Ngrams` instance can be created, as described in the
+[Installation](#installation) section. If the model is not present,
+the `Ngrams()` constructor raises `icegrams.ModelNotFoundError`.
 
 ### The Ngrams class
 
@@ -364,17 +364,37 @@ pip install icegrams
 ```
 
 The trigram model file (~213 MB) is not included in the package itself.
-It is downloaded automatically from a GitHub release of this repository
-the first time an `Ngrams` instance is created, and cached locally
-(on Linux typically in `~/.cache/icegrams/`). Subsequent uses read the
-cached file. The following environment variables can override this
-behavior:
+It is published as an asset of a GitHub release of this repository and
+must be downloaded once, after installing the package:
 
-* `ICEGRAMS_MODEL_DIR`: directory in which to cache the downloaded model.
+```bash
+python -m icegrams.download
+```
+
+This stores the model in a per-user cache directory (on Linux typically
+`~/.cache/icegrams/`), verifies its checksum, and is a no-op if the
+model is already there. The same step is available from Python as
+`icegrams.download.download_model()`. Downloading is deliberately a separate
+setup step: creating an `Ngrams` instance never accesses the network,
+it only checks that the model is present and raises
+`icegrams.ModelNotFoundError` if it isn't.
+
+The following environment variables affect where the model is stored
+and looked up:
+
+* `ICEGRAMS_MODEL_DIR`: base directory for the model, instead of the
+  per-user cache directory. The model is stored in a subdirectory named
+  after the model release (e.g. `model-2026.08`), so a package upgrade
+  that ships a new model requires running the download step again.
 * `ICEGRAMS_MODEL_FILE`: path of an existing model file to use directly,
-  skipping the download entirely (useful for offline or air-gapped
+  skipping the lookup entirely (useful for offline or air-gapped
   environments).
-* `ICEGRAMS_MODEL_URL`: alternative URL to download the model from.
+* `ICEGRAMS_MODEL_URL`: alternative URL for the download step to fetch
+  the model from. The pinned checksum is only verified for the
+  official URL.
+
+Run `python -m icegrams.download --help` for the corresponding
+command-line options (`--dir`, `--url` and `--force`).
 
 If you want to be able to edit the source, do like so (assuming you have **git** installed):
 
@@ -402,8 +422,9 @@ python -m pytest
 * Version 2.0.0: New trigram model built from a ~1 billion word corpus
   (IGC-2022 and IGC-2024ext plus recent news through July 2026), corrected
   with Miðeind's Málfríður neural spelling and grammar correction model.
-  The model file is no longer bundled in the package; it is downloaded
-  from a GitHub release on first use and cached locally. (2026-08-20)
+  The model file is no longer bundled in the package; it is fetched from
+  a GitHub release in a separate one-time step, `python -m icegrams.download`,
+  and `Ngrams()` raises `ModelNotFoundError` if it isn't present. (2026-09-03)
 * Version 1.1.7: Published abi3 wheels; fixed C++ linking in source builds. (2026-06-11)
 * Version 1.1.6: Added abi3 wheel support for smaller release size. (2025-12-12)
 * Version 1.1.5: Fixed PEP 561 compliance (py.typed). Fixed ruff linting in CI. (2025-12-12)

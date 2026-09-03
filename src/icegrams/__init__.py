@@ -41,10 +41,12 @@ __version__ = importlib.metadata.version("icegrams")
 
 # Expose the icegrams API
 from .ngrams import Ngrams, MAX_ORDER
+from .model import ModelNotFoundError
 
 __all__ = [
     "Ngrams",
     "MAX_ORDER",
+    "ModelNotFoundError",
     "__author__",
     "__copyright__",
     "__version__",

@@ -28,97 +28,82 @@ This software is licensed under the MIT License:
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-This module locates the compressed trigram model file (trigrams.bin).
-The model is too large to bundle inside the Python package, so it is
-downloaded from a GitHub release of the Icegrams repository on first
-use and cached locally. The lookup order is:
+This module implements the one-time setup step that downloads the
+compressed trigram model file (trigrams.bin). The model is too large
+to bundle inside the Python package, so it is published as a GitHub
+release asset and must be fetched once, after installing the package,
+by running
 
-    1. The file named by the ICEGRAMS_MODEL_FILE environment variable,
-       if set.
-    2. A model built in place in the package's resources directory
-       (the output location of the icegrams.ngrams compressor).
-    3. The local cache directory, downloading the model into it first
-       if it isn't already there.
+    python -m icegrams.download
 
-The cache location can be overridden with the ICEGRAMS_MODEL_DIR
-environment variable, and the download source with ICEGRAMS_MODEL_URL.
+or by calling icegrams.download.download_model() from Python.
+
+This is deliberately separate from runtime: creating an Ngrams
+instance never touches the network, it only looks for the model file
+(see model.py) and raises ModelNotFoundError if it isn't present.
+
+The download destination can be overridden with the ICEGRAMS_MODEL_DIR
+environment variable (or --dir), and the download source with
+ICEGRAMS_MODEL_URL (or --url).
 
 """
 
-import hashlib
+from typing import Optional
+
+import argparse
 import os
-import ssl
 import sys
-import tempfile
-import urllib.error
-import urllib.request
 
-# The GitHub release that the current model is published under.
-# Model releases are tagged independently of code releases, so a new
-# model can be shipped by uploading it to a new model-* release and
-# updating the constants below.
-MODEL_RELEASE_TAG = "model-2026.08"
-MODEL_BASENAME = "trigrams.bin"
-MODEL_URL = (
-    "https://github.com/mideind/Icegrams/releases/download/"
-    + MODEL_RELEASE_TAG
-    + "/"
-    + MODEL_BASENAME
+from .model import (
+    MODEL_RELEASE_TAG,
+    MODEL_BASENAME,
+    MODEL_URL,
+    MODEL_SIZE,
+    MODEL_SHA256,
+    ENV_MODEL_FILE,
+    ENV_MODEL_DIR,
+    ENV_MODEL_URL,
+    DOWNLOAD_COMMAND,
+    _cached_model_path,
+    _is_model_file,
 )
-MODEL_SIZE = 213218123
-MODEL_SHA256 = "273db68d82cf842ddbc67ee11f9093e1204cc8a4692081f1d21601aea928d92d"
-
-ENV_MODEL_FILE = "ICEGRAMS_MODEL_FILE"
-ENV_MODEL_DIR = "ICEGRAMS_MODEL_DIR"
-ENV_MODEL_URL = "ICEGRAMS_MODEL_URL"
 
 _CHUNK_SIZE = 1024 * 1024
 _PROGRESS_STEP = 20 * _CHUNK_SIZE
-
-_PATH = os.path.dirname(__file__) or "."
-
-
-def _default_cache_dir() -> str:
-    """Return the platform's per-user cache directory for icegrams"""
-    home = os.path.expanduser("~")
-    if sys.platform == "win32":
-        base = os.environ.get("LOCALAPPDATA") or os.path.join(
-            home, "AppData", "Local"
-        )
-    elif sys.platform == "darwin":
-        base = os.path.join(home, "Library", "Caches")
-    else:
-        base = os.environ.get("XDG_CACHE_HOME") or os.path.join(home, ".cache")
-    return os.path.join(base, "icegrams")
+_TIMEOUT_SECONDS = 60.0
 
 
-def model_dir() -> str:
-    """Return the directory where the downloaded model is cached"""
-    env_dir = os.environ.get(ENV_MODEL_DIR)
-    if env_dir:
-        return env_dir
-    # Keyed by release tag, so bumping MODEL_RELEASE_TAG causes a fresh
-    # download instead of reusing a stale cached model
-    return os.path.join(_default_cache_dir(), MODEL_RELEASE_TAG)
-
-
-def _ssl_context() -> ssl.SSLContext:
+def _ssl_context():  # type: ignore[no-untyped-def]
     """A TLS context that uses certifi's CA bundle when available.
     Some Python installations (notably the python.org installers on
     macOS) ship without CA certificates wired up, making every stdlib
-    HTTPS request fail with CERTIFICATE_VERIFY_FAILED."""
+    HTTPS request fail with CERTIFICATE_VERIFY_FAILED. certifi is a
+    declared dependency, but fall back to the system store if it is
+    missing (e.g. an install with --no-deps) rather than refusing."""
+    import ssl
+
     ctx = ssl.create_default_context()
     try:
         import certifi
-
-        ctx.load_verify_locations(certifi.where())
     except ImportError:
-        pass
+        print(
+            "Warning: certifi is not installed; using the system CA store",
+            file=sys.stderr,
+        )
+    else:
+        ctx.load_verify_locations(certifi.where())
     return ctx
 
 
-def _download(url: str, dest: str, verify_checksum: bool) -> None:
+def _fetch(url: str, dest: str, verify_checksum: bool) -> None:
     """Download the model file from url to dest, atomically"""
+    # Network imports are deferred so that importing icegrams
+    # doesn't require the ssl module at all
+    import hashlib
+    import http.client
+    import tempfile
+    import urllib.request
+
     dest_dir = os.path.dirname(dest)
     os.makedirs(dest_dir, exist_ok=True)
     print(
@@ -129,15 +114,18 @@ def _download(url: str, dest: str, verify_checksum: bool) -> None:
     )
     h = hashlib.sha256()
     received = 0
+    total = 0
     next_report = _PROGRESS_STEP
     # Download into a temporary file in the destination directory and
-    # move it into place once complete and verified, so a concurrent or
-    # interrupted download can never leave a partial file at dest
+    # move it into place once complete and verified, so an interrupted
+    # download can never leave a partial file at dest
     tmp_fd, tmp_path = tempfile.mkstemp(dir=dest_dir, suffix=".tmp")
     try:
-        with os.fdopen(tmp_fd, "wb") as tmp:
-            try:
-                with urllib.request.urlopen(url, context=_ssl_context()) as response:
+        try:
+            with os.fdopen(tmp_fd, "wb") as tmp:
+                with urllib.request.urlopen(
+                    url, timeout=_TIMEOUT_SECONDS, context=_ssl_context()
+                ) as response:
                     total = int(response.headers.get("Content-Length") or 0)
                     while True:
                         chunk = response.read(_CHUNK_SIZE)
@@ -153,18 +141,23 @@ def _download(url: str, dest: str, verify_checksum: bool) -> None:
                                     "...{0:.0f}%".format(100.0 * received / total),
                                     file=sys.stderr,
                                 )
-            except urllib.error.URLError as e:
-                raise RuntimeError(
-                    "Unable to download the Icegrams model from {0}: {1}\n"
-                    "If you have a copy of the model file, point the "
-                    "{2} environment variable at it, or set {3} to an "
-                    "alternative download location.".format(
-                        url, e, ENV_MODEL_FILE, ENV_MODEL_URL
-                    )
-                ) from e
-        if received == 0:
+        except (OSError, http.client.HTTPException) as e:
+            # OSError covers urllib.error.URLError, socket timeouts,
+            # connection resets and local filesystem errors
             raise RuntimeError(
-                "Downloaded an empty Icegrams model file from {0}".format(url)
+                "Unable to download the Icegrams model from {0}: {1}\n"
+                "If you have a copy of the model file, point the "
+                "{2} environment variable at it, or set {3} to an "
+                "alternative download location.".format(
+                    url, e, ENV_MODEL_FILE, ENV_MODEL_URL
+                )
+            ) from e
+        if total and received != total:
+            raise RuntimeError(
+                "The download of the Icegrams model from {0} was cut short "
+                "({1} of {2} bytes received); please retry".format(
+                    url, received, total
+                )
             )
         if verify_checksum:
             if received != MODEL_SIZE or h.hexdigest() != MODEL_SHA256:
@@ -174,6 +167,15 @@ def _download(url: str, dest: str, verify_checksum: bool) -> None:
                         url, received, MODEL_SIZE
                     )
                 )
+        elif not _is_model_file(tmp_path):
+            raise RuntimeError(
+                "The file downloaded from {0} is not an Icegrams model "
+                "file".format(url)
+            )
+        # mkstemp() creates the file readable by the owner only; make
+        # the model readable by everyone so that a cache populated by
+        # one user (e.g. during a container build) is usable by others
+        os.chmod(tmp_path, 0o644)
         os.replace(tmp_path, dest)
     except BaseException:
         try:
@@ -184,28 +186,70 @@ def _download(url: str, dest: str, verify_checksum: bool) -> None:
     print("Download complete", file=sys.stderr)
 
 
-def model_filename() -> str:
-    """Return the path of the trigrams.bin model file,
-    downloading it first if necessary"""
-    # 1. Explicit override
-    env_file = os.environ.get(ENV_MODEL_FILE)
-    if env_file:
-        if not os.path.isfile(env_file):
-            raise FileNotFoundError(
-                "{0} points to {1}, which does not exist".format(
-                    ENV_MODEL_FILE, env_file
-                )
-            )
-        return env_file
-    # 2. A model built in place by the compressor (development setups).
-    # The size check skips placeholder files such as git-lfs pointers.
-    local = os.path.join(_PATH, "resources", MODEL_BASENAME)
-    if os.path.isfile(local) and os.path.getsize(local) > 1024 * 1024:
-        return local
-    # 3. The cached download, fetched on first use
-    dest = os.path.join(model_dir(), MODEL_BASENAME)
-    if not os.path.isfile(dest):
-        env_url = os.environ.get(ENV_MODEL_URL)
-        # The pinned checksum only applies to the default URL
-        _download(env_url or MODEL_URL, dest, verify_checksum=not env_url)
+def download_model(
+    url: Optional[str] = None, dest_dir: Optional[str] = None, force: bool = False
+) -> str:
+    """Download the trigram model, if it isn't already present, and
+    return its path. This is a one-time setup step, to be run after
+    installing the package.
+
+    url: where to fetch the model from; defaults to the ICEGRAMS_MODEL_URL
+        environment variable, or else the official GitHub release.
+        The pinned checksum is only verified for the official URL.
+    dest_dir: base directory for the model; defaults to ICEGRAMS_MODEL_DIR
+        or the platform's per-user cache directory. The model is stored
+        in a subdirectory named after the model release tag.
+    force: re-download even if a model is already present.
+    """
+    if dest_dir:
+        dest = os.path.join(dest_dir, MODEL_RELEASE_TAG, MODEL_BASENAME)
+    else:
+        dest = _cached_model_path()
+    env_url = os.environ.get(ENV_MODEL_URL)
+    url = url or env_url or MODEL_URL
+    official = url == MODEL_URL
+    if not force and _is_model_file(dest):
+        if not official or os.path.getsize(dest) == MODEL_SIZE:
+            print("The Icegrams model is already present at " + dest, file=sys.stderr)
+            return dest
+        print("Replacing incomplete model file at " + dest, file=sys.stderr)
+    _fetch(url, dest, verify_checksum=official)
     return dest
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(
+        prog=DOWNLOAD_COMMAND,
+        description="Download the Icegrams trigram model ({0}, {1:.0f} MB). "
+        "This is a one-time step after installing the icegrams "
+        "package.".format(MODEL_RELEASE_TAG, MODEL_SIZE / 1e6),
+    )
+    parser.add_argument(
+        "--dir",
+        metavar="DIR",
+        help="base directory to store the model in "
+        "(default: ${0} or the per-user cache directory)".format(ENV_MODEL_DIR),
+    )
+    parser.add_argument(
+        "--url",
+        metavar="URL",
+        help="alternative URL to download the model from "
+        "(default: ${0} or the official GitHub release)".format(ENV_MODEL_URL),
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="re-download even if the model is already present",
+    )
+    args = parser.parse_args()
+    try:
+        path = download_model(url=args.url, dest_dir=args.dir, force=args.force)
+    except RuntimeError as e:
+        print("Error: {0}".format(e), file=sys.stderr)
+        return 1
+    print(path)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

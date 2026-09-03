@@ -136,15 +136,16 @@ import gzip
 _PATH = os.path.dirname(__file__) or "."
 TSV_FILENAME = os.path.join(_PATH, "resources", "trigrams.tsv")
 # Output path of the compressor (see __main__ below). At query time,
-# the model file is located - and downloaded on first use - by
-# download.model_filename() instead.
+# the model file is located by model.model_filename() instead,
+# which raises ModelNotFoundError if the model hasn't been downloaded
+# (see model.py, download.py and 'python -m icegrams.download').
 BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
 
 # Import the CFFI wrapper for the trie.cpp C++ module
 # (see also trie.py and build_trie.py)
 from ._trie import lib as trie_cffi, ffi  # type: ignore  # noqa: E402
 from .trie import Trie  # noqa: E402
-from .download import model_filename  # noqa: E402
+from .model import model_filename  # noqa: E402
 
 ffi: Any = cast(Any, ffi)
 trie_cffi: Any = cast(Any, trie_cffi)
