@@ -330,10 +330,25 @@ async def process_shard(
                     + "\n"
                 )
     os.replace(tmp_output, output_path)
-    if api_failed:
-        # No .done marker: the shard's output is kept, but the next run
-        # redoes it (cheaply, via the cache) instead of permanently
-        # baking the failures in as if they had been corrected.
+    # The .done marker means "every sentence in this shard has been
+    # corrected". Only write it when that is true: not in skip-correction
+    # mode, not when cache-only mode left misses uncorrected, and not
+    # when API calls failed. Without the marker the shard's output is
+    # kept, but the next (real) run redoes it -- cheaply, via the cache --
+    # instead of permanently baking uncorrected text in as if it had
+    # been corrected.
+    if corrector is None and not cache_only:
+        print(
+            f"{input_path}: no .done marker written (skip-correction mode) "
+            "-- shard will be redone by a correcting run"
+        )
+    elif not_cached:
+        print(
+            f"{input_path}: no .done marker written ({len(not_cached):,} "
+            "sentence(s) not in cache) -- shard will be redone by a "
+            "correcting run"
+        )
+    elif api_failed:
         print(
             f"{input_path}: no .done marker written ({len(api_failed):,} "
             "API failure(s)) -- shard will be retried on the next run"

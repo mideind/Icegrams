@@ -46,7 +46,7 @@ and does two things in one pass:
 
 """
 
-from typing import List
+from typing import List, Optional
 
 import argparse
 
@@ -56,29 +56,55 @@ import argparse
 DEFAULT_BOUNDS = [1, 2, 3, 4, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000]
 
 
-def bucket_view(input_path: str, bounds: List[int]) -> None:
+def bucket_view(
+    input_path: str,
+    bounds: List[int],
+    cutoffs: Optional[List[int]] = None,
+    output_template: str = "trigrams_cutoff{cutoff}.tsv",
+) -> None:
+    """Print the bucket view and, for each cutoff, write the filtered
+    .tsv -- all in a single pass over the input file."""
     bounds = sorted(set(bounds))
+    cutoffs = sorted(set(cutoffs or []))
     # counts[i] = number of distinct trigrams with bounds[i] <= freq < bounds[i+1]
     bucket_unique = [0] * len(bounds)
     bucket_occurrences = [0] * len(bounds)
     total_unique = 0
     total_occurrences = 0
+    # Per-cutoff output files and (kept, kept_occurrences) tallies
+    outputs = {
+        cutoff: open(output_template.format(cutoff=cutoff), "w", encoding="utf-8")
+        for cutoff in cutoffs
+    }
+    kept = {cutoff: 0 for cutoff in cutoffs}
+    kept_occurrences = {cutoff: 0 for cutoff in cutoffs}
 
-    with open(input_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip("\n")
-            if not line:
-                continue
-            freq = int(line.rsplit("\t", 1)[1])
-            total_unique += 1
-            total_occurrences += freq
-            # Find the highest bound <= freq (bisect from the top since
-            # most trigrams are low-frequency and hit an early bucket)
-            for i in range(len(bounds) - 1, -1, -1):
-                if freq >= bounds[i]:
-                    bucket_unique[i] += 1
-                    bucket_occurrences[i] += freq
-                    break
+    try:
+        with open(input_path, "r", encoding="utf-8") as f:
+            for line in f:
+                stripped = line.rstrip("\n")
+                if not stripped:
+                    continue
+                freq = int(stripped.rsplit("\t", 1)[1])
+                total_unique += 1
+                total_occurrences += freq
+                # Find the highest bound <= freq (bisect from the top since
+                # most trigrams are low-frequency and hit an early bucket)
+                for i in range(len(bounds) - 1, -1, -1):
+                    if freq >= bounds[i]:
+                        bucket_unique[i] += 1
+                        bucket_occurrences[i] += freq
+                        break
+                for cutoff in cutoffs:
+                    if freq < cutoff:
+                        # cutoffs are ascending, so no later one matches
+                        break
+                    outputs[cutoff].write(stripped + "\n")
+                    kept[cutoff] += 1
+                    kept_occurrences[cutoff] += freq
+    finally:
+        for fout in outputs.values():
+            fout.close()
 
     print(f"{'lowbound':>10}{'cnt':>14}{'perc':>8}{'cum_cnt':>14}{'cum_perc':>9}{'cum_occ_perc':>14}")
     cum_cnt = 0
@@ -98,33 +124,19 @@ def bucket_view(input_path: str, bounds: List[int]) -> None:
     print(f"\nTotal distinct trigrams: {total_unique:,}")
     print(f"Total trigram occurrences: {total_occurrences:,}")
 
-
-def export_cutoff(input_path: str, cutoff: int, output_path: str) -> None:
-    kept = 0
-    total = 0
-    kept_occurrences = 0
-    total_occurrences = 0
-    with open(input_path, "r", encoding="utf-8") as fin, open(
-        output_path, "w", encoding="utf-8"
-    ) as fout:
-        for line in fin:
-            stripped = line.rstrip("\n")
-            if not stripped:
-                continue
-            freq = int(stripped.rsplit("\t", 1)[1])
-            total += 1
-            total_occurrences += freq
-            if freq >= cutoff:
-                fout.write(line if line.endswith("\n") else line + "\n")
-                kept += 1
-                kept_occurrences += freq
-    pct_unique = 100 * kept / total if total else 0.0
-    pct_occ = 100 * kept_occurrences / total_occurrences if total_occurrences else 0.0
-    print(
-        f"cutoff={cutoff}: kept {kept:,}/{total:,} distinct trigrams ({pct_unique:.2f}%), "
-        f"covering {kept_occurrences:,}/{total_occurrences:,} occurrences ({pct_occ:.2f}%) "
-        f"-> {output_path}"
-    )
+    for cutoff in cutoffs:
+        pct_unique = 100 * kept[cutoff] / total_unique if total_unique else 0.0
+        pct_occ = (
+            100 * kept_occurrences[cutoff] / total_occurrences
+            if total_occurrences
+            else 0.0
+        )
+        print(
+            f"\ncutoff={cutoff}: kept {kept[cutoff]:,}/{total_unique:,} distinct "
+            f"trigrams ({pct_unique:.2f}%), covering "
+            f"{kept_occurrences[cutoff]:,}/{total_occurrences:,} occurrences "
+            f"({pct_occ:.2f}%) -> {output_template.format(cutoff=cutoff)}"
+        )
 
 
 def main() -> None:
@@ -151,12 +163,7 @@ def main() -> None:
     args = parser.parse_args()
 
     bounds = [int(b) for b in args.bounds.split(",") if b.strip()]
-    bucket_view(args.input, bounds)
-
-    for cutoff in args.cutoff:
-        output_path = args.output_template.format(cutoff=cutoff)
-        print()
-        export_cutoff(args.input, cutoff, output_path)
+    bucket_view(args.input, bounds, args.cutoff, args.output_template)
 
 
 if __name__ == "__main__":

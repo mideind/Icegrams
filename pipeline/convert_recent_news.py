@@ -96,6 +96,12 @@ def convert_article(article: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def convert_file(input_path: str, output_path: str) -> Tuple[int, int]:
+    """Convert one shard. Writes a .done marker on completion so that an
+    interrupted run can be restarted and skips finished shards."""
+    done_path = output_path + ".done"
+    if os.path.exists(done_path):
+        print(f"Skipping {input_path} (already done)")
+        return 0, 0
     n_articles = 0
     n_sentences = 0
     tmp_output = output_path + ".tmp"
@@ -112,6 +118,8 @@ def convert_file(input_path: str, output_path: str) -> Tuple[int, int]:
             n_sentences += len(doc["metadata"]["sentences"])
             fout.write(json.dumps(doc, ensure_ascii=False) + "\n")
     os.replace(tmp_output, output_path)
+    with open(done_path, "w") as f:
+        f.write("done\n")
     return n_articles, n_sentences
 
 

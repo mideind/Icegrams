@@ -50,8 +50,8 @@ compressed Icegrams database. The creation process is further
 the previous (2019) model is described
 [here](https://github.com/mideind/Icegrams/blob/master/doc/overview.md).
 The 2019 model itself also remains available: it is bundled inside
-`icegrams` releases up to and including 1.1.6 on
-[PyPI](https://pypi.org/project/icegrams/1.1.6/), and can be retrieved
+`icegrams` releases up to and including 1.1.7 on
+[PyPI](https://pypi.org/project/icegrams/1.1.7/), and can be retrieved
 from this repository's git history, where it was tracked via Git LFS as
 `src/icegrams/resources/trigrams.bin` until version 2.0.0.
 

@@ -89,6 +89,14 @@ class ModelNotFoundError(FileNotFoundError):
 def _default_cache_dir() -> str:
     """Return the platform's per-user cache directory for icegrams"""
     home = os.path.expanduser("~")
+    if not os.path.isabs(home):
+        # No HOME (and no passwd entry to fall back on), e.g. a container
+        # running as an arbitrary uid: don't quietly use a relative path
+        raise RuntimeError(
+            "Unable to determine the home directory; set the {0} "
+            "environment variable to choose where the Icegrams model "
+            "is stored".format(ENV_MODEL_DIR)
+        )
     if sys.platform == "win32":
         base = os.environ.get("LOCALAPPDATA") or os.path.join(
             home, "AppData", "Local"
@@ -143,7 +151,10 @@ def model_filename() -> str:
     if _is_model_file(local):
         return local
     # 3. The model fetched by the download step
-    cached = _cached_model_path()
+    try:
+        cached = _cached_model_path()
+    except RuntimeError as e:
+        raise ModelNotFoundError(str(e)) from e
     if _is_model_file(cached):
         return cached
     raise ModelNotFoundError(

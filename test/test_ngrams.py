@@ -123,7 +123,7 @@ def test_trigrams():
     except ModelNotFoundError as e:
         pytest.skip("Trigram model not downloaded: {0}".format(e))
     assert n.prob("", "", "Í") < 1.0
-    assert n.freq("hundurinn", "át", "heimaverkefnið") >= 2
+    assert n.freq("hundurinn", "át", "heimaverkefnið") == 2
     assert n.adj_freq("xxx", "yyy", "zzz") == 1
     assert n.adj_freq("Hann", "var", "zzz") == 1
 

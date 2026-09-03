@@ -41,6 +41,8 @@ src/icegrams/ngrams.py's read_tsv expects.
 
 """
 
+from typing import List, TextIO, Tuple
+
 import argparse
 import glob
 import os
@@ -72,40 +74,58 @@ def main() -> None:
         sort_cmd += ["-T", args.tmp_dir]
     sort_cmd += input_files
 
-    with open(args.output, "w", encoding="utf-8") as out:
-        # LC_ALL=C makes sort compare raw bytes: under a UTF-8 locale,
-        # distinct keys can collate as equal and interleave, splitting one
-        # trigram's count across non-adjacent rows (which the single
-        # summing pass below would then emit as separate entries).
-        sort_env = {**os.environ, "LC_ALL": "C"}
-        proc = subprocess.Popen(
-            sort_cmd, stdout=subprocess.PIPE, text=True, encoding="utf-8", env=sort_env
-        )
-        prev_key = None
-        prev_count = 0
-        n_lines = 0
-        n_unique = 0
-        for line in proc.stdout:
-            n_lines += 1
-            t1, t2, t3, count_str = line.rstrip("\n").split("\t")
-            key = (t1, t2, t3)
-            count = int(count_str)
-            if key == prev_key:
-                prev_count += count
-            else:
-                if prev_key is not None:
-                    out.write(f"{prev_key[0]}\t{prev_key[1]}\t{prev_key[2]}\t{prev_count}\n")
-                    n_unique += 1
-                prev_key = key
-                prev_count = count
-        if prev_key is not None:
-            out.write(f"{prev_key[0]}\t{prev_key[1]}\t{prev_key[2]}\t{prev_count}\n")
-            n_unique += 1
-        ret = proc.wait()
-        if ret != 0:
-            raise SystemExit(f"sort exited with status {ret}")
-
+    # Write to a temporary file and rename it into place only once sort
+    # has exited cleanly, so a failed or interrupted merge never leaves a
+    # truncated file under the final name (or clobbers a previous good one)
+    tmp_output = args.output + ".tmp"
+    try:
+        with open(tmp_output, "w", encoding="utf-8") as out:
+            n_lines, n_unique = _merge(sort_cmd, out)
+    except BaseException:
+        try:
+            os.remove(tmp_output)
+        except OSError:
+            pass
+        raise
+    os.replace(tmp_output, args.output)
     print(f"Read {n_lines:,} partial-count rows, wrote {n_unique:,} unique trigrams to {args.output}")
+
+
+def _merge(sort_cmd: List[str], out: TextIO) -> Tuple[int, int]:
+    """Run sort over the partial files and write summed counts to out.
+    Returns (rows read, unique trigrams written)."""
+    # LC_ALL=C makes sort compare raw bytes: under a UTF-8 locale,
+    # distinct keys can collate as equal and interleave, splitting one
+    # trigram's count across non-adjacent rows (which the single
+    # summing pass below would then emit as separate entries).
+    sort_env = {**os.environ, "LC_ALL": "C"}
+    proc = subprocess.Popen(
+        sort_cmd, stdout=subprocess.PIPE, text=True, encoding="utf-8", env=sort_env
+    )
+    prev_key = None
+    prev_count = 0
+    n_lines = 0
+    n_unique = 0
+    for line in proc.stdout:
+        n_lines += 1
+        t1, t2, t3, count_str = line.rstrip("\n").split("\t")
+        key = (t1, t2, t3)
+        count = int(count_str)
+        if key == prev_key:
+            prev_count += count
+        else:
+            if prev_key is not None:
+                out.write(f"{prev_key[0]}\t{prev_key[1]}\t{prev_key[2]}\t{prev_count}\n")
+                n_unique += 1
+            prev_key = key
+            prev_count = count
+    if prev_key is not None:
+        out.write(f"{prev_key[0]}\t{prev_key[1]}\t{prev_key[2]}\t{prev_count}\n")
+        n_unique += 1
+    ret = proc.wait()
+    if ret != 0:
+        raise SystemExit(f"sort exited with status {ret}")
+    return n_lines, n_unique
 
 
 if __name__ == "__main__":
