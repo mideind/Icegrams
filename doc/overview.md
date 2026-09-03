@@ -1,6 +1,9 @@
 The Icegrams trigram model
 --------------------------
 
+*This document describes the original 2019 model. For the current model
+(2026), see [2026-update.md](2026-update.md).*
+
 The trigram model was created as follows:
 
 1. A random sample of document collections from the Icelandic Gigaword Corpus was generated,

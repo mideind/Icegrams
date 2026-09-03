@@ -1,6 +1,9 @@
 from random import randint
 
-from icegrams import Ngrams
+import pytest
+
+from icegrams import Ngrams, ModelNotFoundError
+from icegrams.model import model_filename
 from icegrams.ngrams import BitArray, MonotonicList, PartitionedMonotonicList
 
 
@@ -91,10 +94,36 @@ def test_partitioned_list():
     assert pl[1343085] == 1343085 * 17
 
 
+def test_model_lookup(monkeypatch, tmp_path):
+    # Creating an Ngrams instance must never download anything: with no
+    # model present, it fails fast with ModelNotFoundError. Point every
+    # lookup location at an empty directory to simulate a fresh install.
+    monkeypatch.delenv("ICEGRAMS_MODEL_FILE", raising=False)
+    monkeypatch.setenv("ICEGRAMS_MODEL_DIR", str(tmp_path))
+    monkeypatch.setattr("icegrams.model._PATH", str(tmp_path))
+    with pytest.raises(ModelNotFoundError) as excinfo:
+        Ngrams()
+    assert "python -m icegrams.download" in str(excinfo.value)
+    # A truncated or placeholder file is not accepted as a model
+    bogus = tmp_path / "trigrams.bin"
+    bogus.write_bytes(b"version https://git-lfs.github.com/spec/v1\n")
+    monkeypatch.setenv("ICEGRAMS_MODEL_FILE", str(bogus))
+    assert model_filename() == str(bogus)  # explicit override is trusted
+    monkeypatch.delenv("ICEGRAMS_MODEL_FILE")
+    with pytest.raises(ModelNotFoundError):
+        model_filename()
+    monkeypatch.setenv("ICEGRAMS_MODEL_FILE", str(tmp_path / "missing.bin"))
+    with pytest.raises(ModelNotFoundError):
+        model_filename()
+
+
 def test_trigrams():
-    n = Ngrams()
+    try:
+        n = Ngrams()
+    except ModelNotFoundError as e:
+        pytest.skip("Trigram model not downloaded: {0}".format(e))
     assert n.prob("", "", "Í") < 1.0
-    assert n.freq("hundurinn", "át", "heimaverkefnið") == 4
+    assert n.freq("hundurinn", "át", "heimaverkefnið") == 2
     assert n.adj_freq("xxx", "yyy", "zzz") == 1
     assert n.adj_freq("Hann", "var", "zzz") == 1
 

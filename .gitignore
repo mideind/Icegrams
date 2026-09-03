@@ -16,8 +16,8 @@ __pycache__/
 # Data files
 *.sorted
 *.tsv
+!pipeline/subcorpora_categorization.tsv
 *.bin
-!src/icegrams/resources/trigrams.bin
 !*/src/icegrams/resources/trigrams.tsv
 
 # Doc stuff

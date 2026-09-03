@@ -8,4 +8,3 @@ exclude src/icegrams/*.pyd
 exclude src/icegrams/*.DS_Store
 exclude src/icegrams/resources/*.DS_Store
 prune src/icegrams/resources
-include src/icegrams/resources/trigrams.bin
