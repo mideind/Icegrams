@@ -111,6 +111,10 @@ ng = Ngrams()
 Now you can use the `ng` instance to query for unigram, bigram
 and trigram frequencies and probabilities.
 
+An `Ngrams` instance can be shared by any number of threads, also on
+free-threaded Python (3.14t), where queries run in parallel. Call
+`ng.close()` only when no other thread is using `ng`.
+
 Note that the trigram model file must be downloaded once before an
 `Ngrams` instance can be created, as described in the
 [Installation](#installation) section. If the model is not present,
@@ -340,7 +344,8 @@ to placeholder strings, see the
 
 ## Prerequisites
 
-This package runs on CPython 3.9 or newer, and on PyPy 3.9 or newer. It
+This package runs on CPython 3.9 or newer, free-threaded CPython 3.14t,
+and PyPy 3.9 or newer. It
 has been tested on Linux (gcc on x86-64 and ARMhf), macOS (clang) and
 Windows (MSVC).
 

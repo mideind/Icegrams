@@ -241,7 +241,8 @@ class Ngrams:
         return self.ngrams.succ(n, *args)
 
     def close(self) -> None:
-        """Close the underlying storage and its memory map"""
+        """Close the underlying storage and its memory map. Queries read the
+        memory map directly, so no other thread may use this instance any more."""
         self.ngrams.close()
         self.ngrams = None  # type: ignore
 
