@@ -58,6 +58,8 @@ filterwarnings = [
     # Ignore deprecation warnings in libraries, their problem not ours
     # "ignore::DeprecationWarning",
 ]
+# pytest-run-parallel (used on free-threaded Python in CI) runs these tests only once
+markers = ["thread_unsafe: the test starts threads of its own"]
 
 [tool.ruff]
 line-length = 88
