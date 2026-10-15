@@ -129,9 +129,9 @@ elif not WINDOWS and not MACOS:
     os.environ.setdefault("LDCXXSHARED", "c++ -shared")
 
 # Use the Python stable ABI (abi3) for CPython, allowing a single wheel
-# to work across multiple Python versions (3.9+). PyPy and free-threaded
+# to work across multiple Python versions (3.10+). PyPy and free-threaded
 # CPython don't support abi3.
-py_limited_api = "cp39" if IMPLEMENTATION == "CPython" and not FREE_THREADED else False
+py_limited_api = "cp310" if IMPLEMENTATION == "CPython" and not FREE_THREADED else False
 
 ffibuilder.set_source(
     "icegrams._trie",

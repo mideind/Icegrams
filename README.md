@@ -1,5 +1,5 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-3817/)
+![Python 3.10+](https://img.shields.io/badge/python-3.10-blue.svg)
 ![Release](https://shields.io/github/v/release/mideind/Icegrams?display_name=tag)
 ![PyPI](https://img.shields.io/pypi/v/icegrams)
 [![Python package](https://github.com/mideind/Icegrams/actions/workflows/python-package.yml/badge.svg)](https://github.com/mideind/Icegrams/actions?query=workflow%3A%22Python+package%22)
@@ -8,7 +8,7 @@
 
 ## Overview
 
-**Icegrams** is an MIT-licensed Python 3 (>=3.9) package that encapsulates a
+**Icegrams** is an MIT-licensed Python 3 (>=3.10) package that encapsulates a
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
@@ -344,8 +344,8 @@ to placeholder strings, see the
 
 ## Prerequisites
 
-This package runs on CPython 3.9 or newer, free-threaded CPython 3.14t and 3.15t,
-and PyPy 3.9 or newer. It
+This package runs on CPython 3.10 or newer, free-threaded CPython 3.14t and 3.15t,
+and PyPy 3.11 and 3.12. It
 has been tested on Linux (gcc on x86-64 and ARMhf), macOS (clang) and
 Windows (MSVC).
 
