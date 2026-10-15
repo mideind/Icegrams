@@ -8,16 +8,21 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
-        python-version: ["3.9", "3.13", "3.14", "pypy-3.11"]
+        os: [ubuntu-26.04]
+        python-version: ["3.13", "3.14", "pypy-3.11"]
+        include:
+          # setup-python has no Python 3.9 for Ubuntu 26.04
+          - os: ubuntu-24.04
+            python-version: "3.9"
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
     # The trigram model is fetched by an explicit download step (below)
@@ -28,7 +33,7 @@ jobs:
         TAG=$(sed -n 's/^MODEL_RELEASE_TAG = "\(.*\)"/\1/p' src/icegrams/model.py)
         echo "tag=$TAG" >> "$GITHUB_OUTPUT"
     - name: Cache the trigrams model
-      uses: actions/cache@v4
+      uses: actions/cache@v6
       with:
         path: ~/.cache/icegrams
         key: icegrams-${{ steps.model.outputs.tag }}
