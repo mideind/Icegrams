@@ -34,7 +34,7 @@ jobs:
           # Build abi3 wheel for CPython 3.9+ (one wheel for all versions)
           # Build version-specific wheels for free-threaded CPython and PyPy
           # (neither supports abi3)
-          CIBW_BUILD: cp39-* cp314t-* pp311-*
+          CIBW_BUILD: cp39-* cp314t-* cp315t-* pp311-*
           CIBW_SKIP: "*musllinux*"
           CIBW_ENABLE: pypy
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.9"
