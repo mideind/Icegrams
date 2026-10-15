@@ -32,8 +32,9 @@ jobs:
         # Options (https://cibuildwheel.readthedocs.io/en/stable/options/)
         env:
           # Build abi3 wheel for CPython 3.9+ (one wheel for all versions)
-          # Build version-specific wheel for PyPy (which doesn't support abi3)
-          CIBW_BUILD: cp39-* pp311-*
+          # Build version-specific wheels for free-threaded CPython and PyPy
+          # (neither supports abi3)
+          CIBW_BUILD: cp39-* cp314t-* pp311-*
           CIBW_SKIP: "*musllinux*"
           CIBW_ENABLE: pypy
           CIBW_PROJECT_REQUIRES_PYTHON: ">=3.9"
@@ -43,6 +44,10 @@ jobs:
           CIBW_ARCHS_WINDOWS: "AMD64"
           CIBW_ARCHS_LINUX: "x86_64"
           CIBW_BUILD_FRONTEND: "build"
+          # The extension must import, and on free-threaded Python keep the GIL off
+          CIBW_TEST_COMMAND: >-
+            python -c "import sys, sysconfig, icegrams._trie;
+            assert not (sysconfig.get_config_var('Py_GIL_DISABLED') and sys._is_gil_enabled())"
 
       - uses: actions/upload-artifact@v7
         with:
