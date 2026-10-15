@@ -106,9 +106,16 @@ elif MACOS:
     os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
     extra_compile_args = ["-mmacosx-version-min=10.9", "-stdlib=libc++"]
 else:
-    # Adding -O3 to the compiler arguments doesn't seem to make
-    # any discernible difference in lookup speed
     extra_compile_args = ["-std=c++11"]
+
+if not WINDOWS:
+    # Some distributions (e.g. Gentoo) record no optimization level for
+    # extension builds, which leaves trie.cpp at -O0, about 2.5x slower
+    _flags = " ".join(
+        (sysconfig.get_config_var("CFLAGS") or "", os.environ.get("CFLAGS", ""), os.environ.get("CXXFLAGS", ""))
+    )
+    if not any(f.startswith("-O") for f in _flags.split()):
+        extra_compile_args.append("-O2")
 
 # On some systems, the linker needs to be told to use the C++ compiler
 # due to changes in the default behaviour of distutils/setuptools.
