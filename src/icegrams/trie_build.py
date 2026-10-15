@@ -38,6 +38,8 @@ to be built from its source in trie.cpp.
 
 import os
 import platform
+import sysconfig
+
 import cffi
 
 # Don't change the name of this variable unless you
@@ -47,6 +49,7 @@ ffibuilder = cffi.FFI()
 WINDOWS = platform.system() == "Windows"
 MACOS = platform.system() == "Darwin"
 IMPLEMENTATION = platform.python_implementation()
+FREE_THREADED = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 # What follows is the actual Python-wrapped C interface to trie.*.so
 # It must be kept in sync with trie.h
@@ -119,8 +122,9 @@ elif not WINDOWS and not MACOS:
     os.environ.setdefault("LDCXXSHARED", "c++ -shared")
 
 # Use the Python stable ABI (abi3) for CPython, allowing a single wheel
-# to work across multiple Python versions (3.9+). PyPy doesn't support abi3.
-py_limited_api = "cp39" if IMPLEMENTATION == "CPython" else False
+# to work across multiple Python versions (3.9+). PyPy and free-threaded
+# CPython don't support abi3.
+py_limited_api = "cp39" if IMPLEMENTATION == "CPython" and not FREE_THREADED else False
 
 ffibuilder.set_source(
     "icegrams._trie",
