@@ -131,6 +131,7 @@ import io
 import os
 import mmap
 import gzip
+import heapq
 
 
 _PATH = os.path.dirname(__file__) or "."
@@ -968,6 +969,21 @@ class NgramStorage:
             args = args[-MAX_ORDER:]
         return self._PROB_DISPATCH[len(args)](self, *self.indices(*args))
 
+    def _most_frequent(self, n: int, b: bytes, p1: int, p2: int) -> List[int]:
+        """Return the indices within [p1, p2> of the n highest frequencies
+        in the frequency list b, highest first, and in index order among
+        equal frequencies. Only the n best are kept: a common word, such
+        as "og", has hundreds of thousands of successors."""
+        buf = ffi.from_buffer(b)
+        ptr = ffi.cast("uint8_t*", buf)
+        lookup = trie_cffi.lookupFrequency
+        quantum = self.FREQ_QUANTUM_SIZE
+        # Frequencies are stored as ranks into a list of the distinct
+        # frequencies in ascending order, so a higher rank is a higher
+        # frequency, and the ranks can be compared without looking up
+        # the frequencies themselves
+        return heapq.nlargest(n, range(p1, p2), key=lambda i: lookup(ptr, quantum, i))
+
     def unigram_succ(self, n: int, i0: Optional[int]) -> List[Tuple[str, float]]:
         """Return successors to the unigram whose id is in i0"""
         if i0 is None:
@@ -977,15 +993,14 @@ class NgramStorage:
         if p1 >= p2:
             return []
         lp0 = math.log(self.lookup_frequency(1, self._unigram_freqs, i0) + 1)
-        result: List[Tuple[int, float]] = []
         assert self._bigram_pl is not None
         prefix_sum = 0 if p1 == 0 else self._bigram_pl.lookup(p1 - 1)
-        for i in range(p1, p2):
+        result: List[Tuple[str, float]] = []
+        for i in self._most_frequent(n, self._bigram_freqs, p1, p2):
             j = self._bigram_pl.lookup(i) - prefix_sum
             lpi = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
-            result.append((j, lpi - lp0))
-        result = sorted(result, key=lambda e: e[1], reverse=True)[0:n]
-        return [(self.id_to_word(j), lp) for j, lp in result]
+            result.append((self.id_to_word(j), lpi - lp0))
+        return result
 
     def bigram_succ(
         self, n: int, i0: Optional[int], i1: Optional[int]
@@ -1011,18 +1026,17 @@ class NgramStorage:
         prefix_sum_bi = self._bigram_pl.lookup(q1 - 1) if q1 > 0 else 0
         # Cache the bigram frequency of (i0, i1)
         lp0 = math.log(self.lookup_frequency(2, self._bigram_freqs, i) + 1)
-        result: List[Tuple[int, float]] = []
         assert self._trigram_pl is not None
         prefix_sum_tri = self._trigram_pl.lookup(p1 - 1) if p1 > 0 else 0
-        for i in range(p1, p2):
+        result: List[Tuple[str, float]] = []
+        for i in self._most_frequent(n, self._trigram_freqs, p1, p2):
             # trigram[i] is a remapped id, i.e. it's an offset
             # into the bigram children of i1
             remapped_id = self._trigram_pl.lookup(i) - prefix_sum_tri
             j = self._bigram_pl.lookup(q1 + remapped_id) - prefix_sum_bi
             lpi = math.log(self.lookup_frequency(3, self._trigram_freqs, i) + 1)
-            result.append((j, lpi - lp0))
-        result = sorted(result, key=lambda e: e[1], reverse=True)[0:n]
-        return [(self.id_to_word(j), lp) for j, lp in result]
+            result.append((self.id_to_word(j), lpi - lp0))
+        return result
 
     _SUCC_DISPATCH: Dict[int, Callable[..., List[Tuple[str, float]]]] = {
         1: unigram_succ,

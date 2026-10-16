@@ -143,6 +143,29 @@ def test_trigrams():
     assert "heimaverkefnið" in set(u for u, _ in n.succ(20, "hundurinn", "át"))
 
 
+def test_succ():
+    try:
+        n = Ngrams()
+    except ModelNotFoundError as e:
+        pytest.skip("Trigram model not downloaded: {0}".format(e))
+    for ctx in [("Ísland",), ("Katrín",), ("hundurinn", "át"), ("Katrín", "Jakobsdóttir")]:
+        every = n.succ(10**7, *ctx)
+        assert every and all(a[1] >= b[1] for a, b in zip(every, every[1:]))
+        # The n best are the first n of the full list, also among equal
+        # frequencies, which are common towards the end of it
+        for k in (1, 5, 50, max(1, len(every) - 1)):
+            assert n.succ(k, *ctx) == every[:k]
+        for w, lp in every[:20]:
+            assert lp == pytest.approx(n.logprob(*ctx, w))
+    s = n.ngrams
+    p1, p2 = s._unigram_ptrs_ml.lookup_pair(s.word_to_id("Ísland"))
+    assert len(n.succ(10**7, "Ísland")) == p2 - p1
+    # Contexts with hundreds of thousands of successors
+    assert len(n.succ(10, "")) == len(n.succ(10, "og")) == 10
+    assert n.succ(3, "xyzqw") == n.succ(3, "Ísland", "xyzqw") == []
+    n.close()
+
+
 @pytest.mark.skipif(
     platform.python_implementation() != "CPython",
     reason="PyPy unmaps the memory map at close() even while it is in use",
