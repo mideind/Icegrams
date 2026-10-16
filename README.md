@@ -1,5 +1,5 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.9](https://img.shields.io/badge/python-3.9-blue.svg)](https://www.python.org/downloads/release/python-3817/)
+![Python 3.10+](https://img.shields.io/badge/python-3.10-blue.svg)
 ![Release](https://shields.io/github/v/release/mideind/Icegrams?display_name=tag)
 ![PyPI](https://img.shields.io/pypi/v/icegrams)
 [![Python package](https://github.com/mideind/Icegrams/actions/workflows/python-package.yml/badge.svg)](https://github.com/mideind/Icegrams/actions?query=workflow%3A%22Python+package%22)
@@ -8,7 +8,7 @@
 
 ## Overview
 
-**Icegrams** is an MIT-licensed Python 3 (>=3.9) package that encapsulates a
+**Icegrams** is an MIT-licensed Python 3 (>=3.10) package that encapsulates a
 **large trigram library for Icelandic**. (A trigram is a tuple of
 three consecutive words or tokens that appear in real-world text.)
 
@@ -110,6 +110,15 @@ ng = Ngrams()
 
 Now you can use the `ng` instance to query for unigram, bigram
 and trigram frequencies and probabilities.
+
+An `Ngrams` instance can be shared by any number of threads, also on
+free-threaded Python (3.14t and 3.15t), where queries run in parallel. Call
+`ng.close()` only when no other thread is using `ng`.
+
+On Python with the GIL, threads take turns at queries, and several busy
+threads are slower than one: there, run parallel queries in separate
+processes, each with its own `Ngrams`. The processes share the
+memory-mapped model file.
 
 Note that the trigram model file must be downloaded once before an
 `Ngrams` instance can be created, as described in the
@@ -340,9 +349,10 @@ to placeholder strings, see the
 
 ## Prerequisites
 
-This package runs on CPython 3.9 or newer, and on PyPy 3.9 or newer. It
-has been tested on Linux (gcc on x86-64 and ARMhf), macOS (clang) and
-Windows (MSVC).
+This package runs on CPython 3.10 or newer, free-threaded CPython 3.14t
+and 3.15t, and PyPy 3.11 and 3.12. Binary wheels are published for Linux
+(x86-64 and aarch64, gcc), macOS (x86-64 and arm64, clang) and Windows
+(x86-64, MSVC).
 
 If a binary wheel package isn't available on [PyPI](https://pypi.org)
 for your system, you may need to have the `python3-dev` package
@@ -419,6 +429,10 @@ python -m pytest
 
 ## Changelog
 
+* Version 2.1.0: Runs on free-threaded CPython (3.14t and 3.15t) without
+  the GIL, and an `Ngrams` instance can be shared by threads. Support for
+  Python 3.15. Wheels added for free-threaded CPython, PyPy 3.12 and
+  Linux aarch64. Now requires Python 3.10+ and cffi 2.0+. (unreleased)
 * Version 2.0.0: New trigram model built from a ~1 billion word corpus
   (IGC-2022 and IGC-2024ext plus recent news through July 2026), corrected
   with Miðeind's Málfríður neural spelling and grammar correction model.

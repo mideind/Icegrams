@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "cffi>=1.15.1", "wheel>=0.38.0"]
+requires = ["setuptools>=61.0", "cffi>=2.0.0", "wheel>=0.38.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -22,21 +22,24 @@ classifiers = [
     "Natural Language :: Icelandic",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
+    # Free-threaded wheels are published for CPython 3.14t and 3.15t
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Utilities",
     "Topic :: Text Processing :: Linguistic",
 ]
 keywords = ["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"]
-requires-python = ">=3.9"
-dependencies = ["cffi>=1.15.1", "certifi"]
+requires-python = ">=3.10"
+# cffi 2.0 is the first that runs free-threaded Python without the GIL
+dependencies = ["cffi>=2.0.0", "certifi"]
 
 [project.urls]
 Repository = "https://github.com/mideind/Icegrams"
@@ -58,6 +61,8 @@ filterwarnings = [
     # Ignore deprecation warnings in libraries, their problem not ours
     # "ignore::DeprecationWarning",
 ]
+# pytest-run-parallel (used on free-threaded Python in CI) runs these tests only once
+markers = ["thread_unsafe: the test starts threads of its own"]
 
 [tool.ruff]
 line-length = 88

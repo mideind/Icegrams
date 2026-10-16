@@ -38,6 +38,8 @@ to be built from its source in trie.cpp.
 
 import os
 import platform
+import sysconfig
+
 import cffi
 
 # Don't change the name of this variable unless you
@@ -47,6 +49,7 @@ ffibuilder = cffi.FFI()
 WINDOWS = platform.system() == "Windows"
 MACOS = platform.system() == "Darwin"
 IMPLEMENTATION = platform.python_implementation()
+FREE_THREADED = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 # What follows is the actual Python-wrapped C interface to trie.*.so
 # It must be kept in sync with trie.h
@@ -103,9 +106,16 @@ elif MACOS:
     os.environ["MACOSX_DEPLOYMENT_TARGET"] = "10.9"
     extra_compile_args = ["-mmacosx-version-min=10.9", "-stdlib=libc++"]
 else:
-    # Adding -O3 to the compiler arguments doesn't seem to make
-    # any discernible difference in lookup speed
     extra_compile_args = ["-std=c++11"]
+
+if not WINDOWS:
+    # Some distributions (e.g. Gentoo) record no optimization level for
+    # extension builds, which leaves trie.cpp at -O0, about 2.5x slower
+    _flags = " ".join(
+        (sysconfig.get_config_var("CFLAGS") or "", os.environ.get("CFLAGS", ""), os.environ.get("CXXFLAGS", ""))
+    )
+    if not any(f.startswith("-O") for f in _flags.split()):
+        extra_compile_args.append("-O2")
 
 # On some systems, the linker needs to be told to use the C++ compiler
 # due to changes in the default behaviour of distutils/setuptools.
@@ -119,8 +129,9 @@ elif not WINDOWS and not MACOS:
     os.environ.setdefault("LDCXXSHARED", "c++ -shared")
 
 # Use the Python stable ABI (abi3) for CPython, allowing a single wheel
-# to work across multiple Python versions (3.9+). PyPy doesn't support abi3.
-py_limited_api = "cp39" if IMPLEMENTATION == "CPython" else False
+# to work across multiple Python versions (3.10+). PyPy and free-threaded
+# CPython don't support abi3.
+py_limited_api = "cp310" if IMPLEMENTATION == "CPython" and not FREE_THREADED else False
 
 ffibuilder.set_source(
     "icegrams._trie",
