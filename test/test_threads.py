@@ -14,7 +14,12 @@ import pytest
 
 from icegrams import ModelNotFoundError, Ngrams
 
-THREADS = 8
+FREE_THREADED = not getattr(sys, "_is_gil_enabled", lambda: True)()
+# With the GIL the threads take turns, and cffi releases the GIL around every C
+# call, so more threads only add hand-offs (8 threads take 25 times as long as
+# one for the same queries): use two threads with half of the queries each
+THREADS = 8 if FREE_THREADED else 2
+SHARE = 1 if FREE_THREADED else THREADS
 
 # Common and rare words, sentence boundaries (""), an unknown word and one
 # with a character outside the alphabet
@@ -67,15 +72,15 @@ def test_parallel_queries_match_serial() -> None:
     # A fresh instance, so that the threads also race to compute its lazily cached values
     shared = _ngrams()
     barrier = threading.Barrier(THREADS)
+    ops = dict(OPS)
 
     def work(seed: int) -> list[tuple[str, tuple[str, ...]]]:
         keys = list(expected)
         random.Random(seed).shuffle(keys)
+        keys = keys[: len(keys) // SHARE]
         barrier.wait()
         return [
-            (name, w)
-            for name, w in keys
-            if dict(OPS)[name](shared, w) != expected[(name, w)]
+            (name, w) for name, w in keys if ops[name](shared, w) != expected[(name, w)]
         ]
 
     with ThreadPoolExecutor(THREADS) as pool:
