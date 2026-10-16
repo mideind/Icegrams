@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "icegrams"
-version = "2.0.0"
+version = "2.1.0"
 description = "Trigram statistics for Icelandic"
 authors = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
 maintainers = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
