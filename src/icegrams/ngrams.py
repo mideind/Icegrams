@@ -241,8 +241,9 @@ class Ngrams:
         return self.ngrams.succ(n, *args)
 
     def close(self) -> None:
-        """Close the underlying storage and its memory map. Queries read the
-        memory map directly, so no other thread may use this instance any more."""
+        """Close the underlying storage and its memory map. Call this only
+        when no other thread is using this instance: on CPython a query that
+        is still running completes, but on PyPy it can read unmapped memory."""
         self.ngrams.close()
         self.ngrams = None  # type: ignore
 
@@ -1681,7 +1682,12 @@ class NgramStorage:
             self._bigram_pl = None  # type: ignore
             self._bigram_ptrs_ml = None  # type: ignore
             self._trigram_pl = None  # type: ignore
-            self._b.close()
+            try:
+                self._b.close()
+            except BufferError:
+                # A query in another thread still holds a view of the map:
+                # CPython unmaps it when the last view is released
+                pass
             self._b = None
 
 

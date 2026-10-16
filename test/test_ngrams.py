@@ -1,3 +1,4 @@
+import platform
 from random import randint
 
 import pytest
@@ -140,6 +141,23 @@ def test_trigrams():
     assert "Þorsteinsson" in set(u for u, _ in n.succ(20, "Vilhjálmur"))
     assert "atkvæði" in set(u for u, _ in n.succ(20, "greiddi", "því"))
     assert "heimaverkefnið" in set(u for u, _ in n.succ(20, "hundurinn", "át"))
+
+
+@pytest.mark.skipif(
+    platform.python_implementation() != "CPython",
+    reason="PyPy unmaps the memory map at close() even while it is in use",
+)
+def test_close_while_in_use():
+    # A query in another thread holds views of the memory map while it runs:
+    # close() must still succeed, and the views stay readable until released
+    try:
+        n = Ngrams()
+    except ModelNotFoundError as e:
+        pytest.skip("Trigram model not downloaded: {0}".format(e))
+    in_use = n.ngrams._unigram_ptrs_ml
+    expected = in_use.lookup_pair(0)
+    n.close()
+    assert in_use.lookup_pair(0) == expected
 
 
 def test_word_ids():
