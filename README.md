@@ -239,7 +239,8 @@ the `Ngrams()` constructor raises `icegrams.ModelNotFoundError`.
   If a bigram or trigram does not occur in the database, its
   probability is estimated by *backoff*: the probability of the
   next lower order n-gram, i.e. `(u2, u3)` for a trigram or `(u3)`
-  for a bigram, multiplied by `icegrams.BACKOFF_FACTOR` (0.4).
+  for a bigram, multiplied by `icegrams.BACKOFF_FACTOR` (0.4, a
+  read-only constant).
   The backoff is applied repeatedly if needed, so an unseen trigram
   whose bigram `(u2, u3)` is also unseen is estimated from the
   unigram probability of `u3` multiplied by the factor squared.

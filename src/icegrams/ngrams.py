@@ -120,6 +120,7 @@ from typing import (
     Any,
     Callable,
     IO,
+    Final,
     cast,
 )
 import time
@@ -172,8 +173,10 @@ MAX_ORDER = 3
 # The backed-off estimate is additionally capped at 1/(context count + 1),
 # the add-one estimate of a single unseen continuation, so that an unseen
 # n-gram never outscores a seen n-gram in the same context.
-BACKOFF_FACTOR = 0.4
-LOG_BACKOFF_FACTOR = math.log(BACKOFF_FACTOR)
+# The factor is read-only: it is applied through _LOG_BACKOFF_FACTOR,
+# computed once here, so assigning another value has no effect.
+BACKOFF_FACTOR: Final = 0.4
+_LOG_BACKOFF_FACTOR: Final = math.log(BACKOFF_FACTOR)
 
 
 def to_bytes(s: str) -> bytes:
@@ -742,8 +745,9 @@ class NgramStorage:
         self.trie: Optional[Trie] = None
         self.log_ucnt = 0.0
         # Back off to lower-order probabilities for unseen n-grams;
-        # False gives the legacy add-one estimates with no backoff
-        self.backoff = backoff
+        # False gives the legacy add-one estimates with no backoff.
+        # Fixed for the lifetime of the instance, which threads may share.
+        self._backoff: Final = backoff
         self._number_of_sentences: Optional[int] = None
         # A dictionary of frequency buckets in ascending order
         self.freqs: Optional[List[List[int]]] = None
@@ -777,6 +781,11 @@ class NgramStorage:
         causing (w1, w2) to be implicitly added."""
         self.read_tsv(tsv_filename, add_all_bigrams=add_all_bigrams)
         self.write_binary(binary_filename)
+
+    @property
+    def backoff(self) -> bool:
+        """True if unseen n-grams back off to lower orders (read-only)"""
+        return self._backoff
 
     def number_of_sentences(self) -> int:
         """Return the number of sentences in the trigram store,
@@ -896,11 +905,11 @@ class NgramStorage:
             ugf = self._number_of_sentences
         else:
             ugf = self.unigram_frequency(i0)
-        if self.backoff and bgf == 0:
+        if self._backoff and bgf == 0:
             # Unseen bigram: back off to the unigram probability of i1,
             # capped at the add-one estimate of one unseen continuation
             return min(
-                LOG_BACKOFF_FACTOR + self.unigram_logprob(i1), -math.log(ugf + 1)
+                _LOG_BACKOFF_FACTOR + self.unigram_logprob(i1), -math.log(ugf + 1)
             )
         return math.log(bgf + 1) - math.log(ugf + 1)
 
@@ -960,11 +969,11 @@ class NgramStorage:
             return self.bigram_logprob(i0, i1)
         tgf = self.trigram_frequency(i0, i1, i2)
         bgf = self.bigram_frequency(i0, i1)
-        if self.backoff and tgf == 0:
+        if self._backoff and tgf == 0:
             # Unseen trigram: back off to the bigram probability of (i1, i2),
             # capped at the add-one estimate of one unseen continuation
             return min(
-                LOG_BACKOFF_FACTOR + self.bigram_logprob(i1, i2), -math.log(bgf + 1)
+                _LOG_BACKOFF_FACTOR + self.bigram_logprob(i1, i2), -math.log(bgf + 1)
             )
         return math.log(tgf + 1) - math.log(bgf + 1)
 

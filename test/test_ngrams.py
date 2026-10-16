@@ -366,10 +366,10 @@ def test_backoff_edge_cases():
     assert legacy.ngrams.backoff is False
     assert n.prob("xxxq", "yyyq", "zzzq") < 1.0 == legacy.prob("xxxq", "yyyq", "zzzq")
 
-    # The flag can be toggled on an existing instance
-    n.ngrams.backoff = False
-    assert n.logprob("xxxq", "yyyq", "zzzq") == legacy.logprob("xxxq", "yyyq", "zzzq")
-    n.ngrams.backoff = True
+    # The setting is fixed when the instance is created, since threads
+    # may share it
+    with pytest.raises(AttributeError):
+        n.ngrams.backoff = False  # type: ignore[misc]
     assert n.logprob("xxxq", "yyyq", "zzzq") == pytest.approx(
         2 * math.log(BACKOFF_FACTOR) + n.logprob("zzzq")
     )
