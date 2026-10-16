@@ -115,6 +115,11 @@ An `Ngrams` instance can be shared by any number of threads, also on
 free-threaded Python (3.14t and 3.15t), where queries run in parallel. Call
 `ng.close()` only when no other thread is using `ng`.
 
+On Python with the GIL, threads take turns at queries, and several busy
+threads are slower than one: there, run parallel queries in separate
+processes, each with its own `Ngrams`. The processes share the
+memory-mapped model file.
+
 Note that the trigram model file must be downloaded once before an
 `Ngrams` instance can be created, as described in the
 [Installation](#installation) section. If the model is not present,
