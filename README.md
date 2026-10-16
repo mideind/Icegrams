@@ -432,7 +432,10 @@ python -m pytest
 * Version 2.1.0: Runs on free-threaded CPython (3.14t and 3.15t) without
   the GIL, and an `Ngrams` instance can be shared by threads. Support for
   Python 3.15. Wheels added for free-threaded CPython, PyPy 3.12 and
-  Linux aarch64. Now requires Python 3.10+ and cffi 2.0+. (unreleased)
+  Linux aarch64. Now requires Python 3.10+ and cffi 2.0+. `succ()` is about
+  four times as fast, and no longer allocates memory in proportion to the
+  number of successors, which is in the hundreds of thousands for common
+  words. (unreleased)
 * Version 2.0.0: New trigram model built from a ~1 billion word corpus
   (IGC-2022 and IGC-2024ext plus recent news through July 2026), corrected
   with Miðeind's Málfríður neural spelling and grammar correction model.
