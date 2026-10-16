@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
+"""
+This file is retained for CFFI compilation.
+All package metadata is defined in pyproject.toml.
+"""
 
 import platform
 import sysconfig
-from glob import glob
-from os.path import basename, splitext
 
-from setuptools import find_packages, setup
+from setuptools import setup
+
+# The cffi_modules and zip_safe settings are not yet supported in pyproject.toml
+# and must be defined here.
 
 # Use the stable ABI (abi3) for CPython to create portable wheels that work
 # across Python versions (3.10+). PyPy and free-threaded CPython don't support
@@ -16,14 +21,7 @@ if platform.python_implementation() == "CPython" and not sysconfig.get_config_va
     options["py_limited_api"] = "cp310"
 
 setup(
-    packages=find_packages("src"),
-    package_dir={"": "src"},
-    py_modules=[splitext(basename(path))[0] for path in glob("src/*.py")],
-    package_data={"icegrams": ["py.typed"]},
-    include_package_data=True,
     zip_safe=False,
-    setup_requires=["cffi>=2.0.0", "setuptools"],
-    install_requires=["cffi>=2.0.0"],
     cffi_modules=["src/icegrams/trie_build.py:ffibuilder"],
     options={"bdist_wheel": options},
 )
