@@ -120,6 +120,15 @@ threads are slower than one: there, run parallel queries in separate
 processes, each with its own `Ngrams`. The processes share the
 memory-mapped model file.
 
+By default, probabilities of bigrams and trigrams that do not occur in
+the database are estimated by backing off to the next lower order
+(see `prob()` below). To obtain the behavior of versions before 2.1.0,
+where no backoff was done, pass `backoff=False`:
+
+```python
+ng = Ngrams(backoff=False)
+```
+
 Note that the trigram model file must be downloaded once before an
 `Ngrams` instance can be created, as described in the
 [Installation](#installation) section. If the model is not present,
@@ -227,6 +236,29 @@ the `Ngrams()` constructor raises `icegrams.ModelNotFoundError`.
   of the trigram divided by the frequency of the bigram `(u1, u2)`,
   i.e. how likely `u3` is to succeed `u1 u2`.
 
+  If a bigram or trigram does not occur in the database, its
+  probability is estimated by *backoff*: the probability of the
+  next lower order n-gram, i.e. `(u2, u3)` for a trigram or `(u3)`
+  for a bigram, multiplied by `icegrams.BACKOFF_FACTOR` (0.4).
+  The backoff is applied repeatedly if needed, so an unseen trigram
+  whose bigram `(u2, u3)` is also unseen is estimated from the
+  unigram probability of `u3` multiplied by the factor squared.
+  This is the "stupid backoff" scheme of Brants et al. (2007), with
+  one addition: the backed-off estimate is capped at
+  `1 / (context frequency + 1)`, i.e. what a single unseen
+  continuation of the context would be worth. An unseen n-gram
+  therefore never scores higher than a seen n-gram in the same
+  context, while unseen continuations are still ranked against each
+  other by their lower-order probabilities. The resulting values are
+  not normalized to sum to exactly 1 over the vocabulary, but are
+  suitable for ranking and scoring.
+
+  If the `Ngrams` instance was created with `backoff=False`, no
+  backoff is done and the add-one estimates described below under
+  `logprob()` are returned instead. Note that in that case an n-gram
+  whose context (`u1` or `(u1, u2)`) is itself unseen gets a
+  probability of 1.0.
+
   If you pass more than 3 arguments to `ng.prob()`, only the
   last 3 are significant, and the query will be treated
   as a trigram probability query.
@@ -240,6 +272,9 @@ the `Ngrams()` constructor raises `icegrams.ModelNotFoundError`.
   0.02948951856126892
   >>>> ng.prob("stjórnarskrá", "lýðveldisins", "Íslands")
   0.23863636363636387
+  >>>> # Unseen trigram, backed off to 0.4 * prob("át", "Ísland")
+  >>>> ng.prob("hundurinn", "át", "Ísland")
+  3.735947666084515e-05
   ```
 
 * `logprob(self, *args) -> float`
@@ -262,6 +297,10 @@ the `Ngrams()` constructor raises `icegrams.ModelNotFoundError`.
   The probability of a trigram `(u1, u2, u3)` is the adjusted frequency
   of the trigram divided by the adjusted frequency of the bigram `(u1, u2)`,
   i.e. how likely `u3` is to succeed `u1 u2`.
+
+  Unseen bigrams and trigrams are backed off to the next lower order
+  as described under `prob()` above, unless the `Ngrams` instance was
+  created with `backoff=False`.
 
   If you pass more than 3 arguments to `ng.logprob()`, only the
   last 3 are significant, and the query will be treated
@@ -429,13 +468,19 @@ python -m pytest
 
 ## Changelog
 
-* Version 2.1.0: Runs on free-threaded CPython (3.14t and 3.15t) without
-  the GIL, and an `Ngrams` instance can be shared by threads. Support for
-  Python 3.15. Wheels added for free-threaded CPython, PyPy 3.12 and
-  Linux aarch64. Now requires Python 3.10+ and cffi 2.0+. `succ()` is about
-  four times as fast, and no longer allocates memory in proportion to the
-  number of successors, which is in the hundreds of thousands for common
-  words. (unreleased)
+* Version 2.1.0: `prob()` and `logprob()` now back off to the next lower
+  n-gram order for bigrams and trigrams that do not occur in the database
+  ("stupid backoff", factor `BACKOFF_FACTOR` = 0.4, capped so that an unseen
+  n-gram never outscores a seen one in the same context). Previously an n-gram
+  whose context was itself unseen was given a probability of 1.0.
+  Probabilities of n-grams that do occur are unchanged. The previous
+  behavior is available via `Ngrams(backoff=False)`. Runs on free-threaded
+  CPython (3.14t and 3.15t) without the GIL, and an `Ngrams` instance can be
+  shared by threads. Support for Python 3.15. Wheels added for free-threaded
+  CPython, PyPy 3.12 and Linux aarch64. Now requires Python 3.10+ and
+  cffi 2.0+. `succ()` is about four times as fast, and no longer allocates
+  memory in proportion to the number of successors, which is in the hundreds
+  of thousands for common words. (unreleased)
 * Version 2.0.0: New trigram model built from a ~1 billion word corpus
   (IGC-2022 and IGC-2024ext plus recent news through July 2026), corrected
   with Miðeind's Málfríður neural spelling and grammar correction model.

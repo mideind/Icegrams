@@ -40,12 +40,13 @@ __copyright__ = "(C) 2019-2026 Miðeind ehf."
 __version__ = importlib.metadata.version("icegrams")
 
 # Expose the icegrams API
-from .ngrams import Ngrams, MAX_ORDER
+from .ngrams import Ngrams, MAX_ORDER, BACKOFF_FACTOR
 from .model import ModelNotFoundError
 
 __all__ = [
     "Ngrams",
     "MAX_ORDER",
+    "BACKOFF_FACTOR",
     "ModelNotFoundError",
     "__author__",
     "__copyright__",
