@@ -1,10 +1,14 @@
+import importlib.metadata
 import math
 import platform
+import sys
+import types
 from random import randint
 
 import pytest
 
 from icegrams import Ngrams, ModelNotFoundError, BACKOFF_FACTOR
+from icegrams.model import MODEL_HEADER, MODEL_RELEASE_TAG, data_requirement
 from icegrams.model import model_filename
 from icegrams.ngrams import BitArray, MonotonicList, PartitionedMonotonicList
 
@@ -99,13 +103,16 @@ def test_partitioned_list():
 def test_model_lookup(monkeypatch, tmp_path):
     # Creating an Ngrams instance must never download anything: with no
     # model present, it fails fast with ModelNotFoundError. Point every
-    # lookup location at an empty directory to simulate a fresh install.
+    # lookup location at an empty directory, and hide the icegrams-data
+    # package, to simulate an install without the model.
     monkeypatch.delenv("ICEGRAMS_MODEL_FILE", raising=False)
     monkeypatch.setenv("ICEGRAMS_MODEL_DIR", str(tmp_path))
     monkeypatch.setattr("icegrams.model._PATH", str(tmp_path))
+    monkeypatch.setitem(sys.modules, "icegrams_data", None)  # ImportError
     with pytest.raises(ModelNotFoundError) as excinfo:
         Ngrams()
     assert "python -m icegrams.download" in str(excinfo.value)
+    assert data_requirement() in str(excinfo.value)
     # A truncated or placeholder file is not accepted as a model
     bogus = tmp_path / "trigrams.bin"
     bogus.write_bytes(b"version https://git-lfs.github.com/spec/v1\n")
@@ -117,6 +124,67 @@ def test_model_lookup(monkeypatch, tmp_path):
     monkeypatch.setenv("ICEGRAMS_MODEL_FILE", str(tmp_path / "missing.bin"))
     with pytest.raises(ModelNotFoundError):
         model_filename()
+
+
+def _fake_data_package(tmp_path, tag, content):
+    """A stand-in for the icegrams_data module, holding a model file in
+    tmp_path/pkg with the given content"""
+    pkg = tmp_path / "pkg"
+    pkg.mkdir(parents=True, exist_ok=True)
+    path = pkg / "trigrams.bin"
+    if content is not None:
+        path.write_bytes(content)
+    mod = types.ModuleType("icegrams_data")
+    mod.MODEL_RELEASE_TAG = tag  # type: ignore[attr-defined]
+    mod.__version__ = "0.0.0"  # type: ignore[attr-defined]
+    mod.model_path = lambda: str(path)  # type: ignore[attr-defined]
+    return mod, str(path)
+
+
+def test_data_package_lookup(monkeypatch, tmp_path):
+    # The icegrams-data package comes after ICEGRAMS_MODEL_FILE and a model
+    # built in resources/, and before the download cache
+    monkeypatch.delenv("ICEGRAMS_MODEL_FILE", raising=False)
+    monkeypatch.setenv("ICEGRAMS_MODEL_DIR", str(tmp_path / "cache"))
+    monkeypatch.setattr("icegrams.model._PATH", str(tmp_path))
+    mod, path = _fake_data_package(tmp_path, MODEL_RELEASE_TAG, MODEL_HEADER)
+    monkeypatch.setitem(sys.modules, "icegrams_data", mod)
+    assert model_filename() == path
+    override = tmp_path / "override.bin"
+    override.write_bytes(MODEL_HEADER)
+    monkeypatch.setenv("ICEGRAMS_MODEL_FILE", str(override))
+    assert model_filename() == str(override)
+    monkeypatch.delenv("ICEGRAMS_MODEL_FILE")
+    # A package of another model release is not used
+    mod, _ = _fake_data_package(tmp_path, "model-1999.01", MODEL_HEADER)
+    monkeypatch.setitem(sys.modules, "icegrams_data", mod)
+    with pytest.raises(ModelNotFoundError) as excinfo:
+        model_filename()
+    assert "model-1999.01" in str(excinfo.value)
+    # Nor one without a model file (a source checkout of icegrams-data)
+    mod, _ = _fake_data_package(tmp_path / "empty", MODEL_RELEASE_TAG, None)
+    monkeypatch.setitem(sys.modules, "icegrams_data", mod)
+    with pytest.raises(ModelNotFoundError) as excinfo:
+        model_filename()
+    assert "holds no model file" in str(excinfo.value)
+    # ...and then the download cache is used
+    cache = tmp_path / "cache" / MODEL_RELEASE_TAG / "trigrams.bin"
+    cache.parent.mkdir(parents=True)
+    cache.write_bytes(MODEL_HEADER)
+    assert model_filename() == str(cache)
+
+
+def test_data_requirement():
+    # icegrams must depend on exactly the icegrams-data release of the
+    # model that model.py names
+    requires = [r.replace(" ", "") for r in importlib.metadata.requires("icegrams") or []]
+    assert data_requirement() in requires, requires
+    # The installed icegrams-data, if it holds a model, is that release
+    try:
+        import icegrams_data
+    except ImportError:
+        return
+    assert icegrams_data.MODEL_RELEASE_TAG == MODEL_RELEASE_TAG
 
 
 def test_trigrams():

@@ -28,15 +28,20 @@ This software is licensed under the MIT License:
     SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 
-This module implements the one-time setup step that downloads the
-compressed trigram model file (trigrams.bin). The model is too large
-to bundle inside the Python package, so it is published as a GitHub
-release asset and must be fetched once, after installing the package,
-by running
+This module implements the fallback setup step that downloads the
+compressed trigram model file (trigrams.bin). Since icegrams 2.2.0
+the model is installed with the icegrams-data package, a dependency
+of icegrams, and this step is not needed. It remains for installations
+without that package (e.g. pip install --no-deps, or machines that
+cannot reach PyPI) and for icegrams 2.0 and 2.1. The model is also
+published as a GitHub release asset, and this step fetches it from
+there into a per-user cache:
 
     python -m icegrams.download
 
-or by calling icegrams.download.download_model() from Python.
+or icegrams.download.download_model() from Python. If the installed
+icegrams-data package already holds the model, both say so and
+download nothing (unless a directory, a URL or --force is given).
 
 This is deliberately separate from runtime: creating an Ngrams
 instance never touches the network, it only looks for the model file
@@ -65,6 +70,7 @@ from .model import (
     ENV_MODEL_URL,
     DOWNLOAD_COMMAND,
     _cached_model_path,
+    _data_package_model,
     _is_model_file,
 )
 
@@ -190,8 +196,9 @@ def download_model(
     url: Optional[str] = None, dest_dir: Optional[str] = None, force: bool = False
 ) -> str:
     """Download the trigram model, if it isn't already present, and
-    return its path. This is a one-time setup step, to be run after
-    installing the package.
+    return its path. This is a one-time setup step, needed only if the
+    icegrams-data package is not installed: if it is, and none of url,
+    dest_dir and force is given, its model's path is returned instead.
 
     url: where to fetch the model from; defaults to the ICEGRAMS_MODEL_URL
         environment variable, or else the official GitHub release.
@@ -201,6 +208,15 @@ def download_model(
         in a subdirectory named after the model release tag.
     force: re-download even if a model is already present.
     """
+    if not (url or dest_dir or force):
+        packaged, _ = _data_package_model()
+        if packaged is not None:
+            print(
+                "The Icegrams model is provided by the installed icegrams-data "
+                "package at " + packaged + "; nothing to download",
+                file=sys.stderr,
+            )
+            return packaged
     if dest_dir:
         dest = os.path.join(dest_dir, MODEL_RELEASE_TAG, MODEL_BASENAME)
     else:
@@ -221,8 +237,10 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         prog=DOWNLOAD_COMMAND,
         description="Download the Icegrams trigram model ({0}, {1:.0f} MB). "
-        "This is a one-time step after installing the icegrams "
-        "package.".format(MODEL_RELEASE_TAG, MODEL_SIZE / 1e6),
+        "Not needed if the icegrams-data package, a dependency of icegrams, "
+        "is installed: it holds the model.".format(
+            MODEL_RELEASE_TAG, MODEL_SIZE / 1e6
+        ),
     )
     parser.add_argument(
         "--dir",

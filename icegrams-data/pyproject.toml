@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "icegrams-data"
+# The version follows the model release: 2026.8.x holds model-2026.08
+# (YYYY.M of the tag, without the leading zero). The patch number is for
+# re-releases of the same model, e.g. a packaging fix. icegrams requires
+# the exact model it was tested with (icegrams-data == 2026.8.*), because
+# a new model changes query results. tools/data_package.py checks that
+# this version, MODEL_RELEASE_TAG in src/icegrams_data/__init__.py and
+# src/icegrams/model.py agree.
+version = "2026.8.0"
+description = "The trigram model of the icegrams package: n-gram statistics for Icelandic"
+authors = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
+maintainers = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
+readme = { file = "README.md", content-type = "text/markdown" }
+license = "MIT"
+license-files = ["LICENSE.txt"]
+keywords = ["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic", "data"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: Icelandic",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Linguistic",
+]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.urls]
+Repository = "https://github.com/mideind/Icegrams"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+icegrams_data = ["trigrams.bin", "py.typed"]

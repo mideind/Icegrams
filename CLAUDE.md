@@ -3,7 +3,7 @@
 Guidance for Claude Code in this repository. `README.md` documents the API,
 `doc/overview.md` the design and `doc/2026-update.md` the 2026 model rebuild.
 
-## Status (2026-10-20): 2.1.0 released, 2.2.0 waiting on PyPI
+## Status (2026-11-04): 2.1.0 released, 2.2.0 in a PR
 
 **icegrams 2.1.0 was released on 2026-10-16** (tag `2.1.0` on `a233b53`,
 GitHub release 2.1.0, 30 wheels plus the sdist on PyPI). It contains:
@@ -16,10 +16,11 @@ GitHub release 2.1.0, 30 wheels plus the sdist on PyPI). It contains:
 
 The model is unchanged since 2.0.0: `model-2026.08`.
 
-**Next: 2.2.0, the `icegrams-data` package** (see the Roadmap below). It is
-blocked until PyPI raises the file size limit for `icegrams-data`, which
-was requested in [pypi/support#12724](https://github.com/pypi/support/issues/12724).
-When that issue gets a reply, start with "When the limit is granted" below.
+**Next: 2.2.0, the `icegrams-data` package.** PyPI set its file limit to
+250 MiB on 2026-11-04
+([pypi/support#12724](https://github.com/pypi/support/issues/12724), closed).
+The implementation is on branch `icegrams-data` (see "2.2.0" under the
+Roadmap for what it does and what is left before the release).
 
 ## Key commands
 
@@ -32,56 +33,96 @@ uv sync --extra dev                  # dev environment (pytest, ruff)
 uv run python -m icegrams.download   # fetch the model once (~213 MB)
 uv run python -m pytest              # test suite; needs the model
 ruff check src/icegrams              # lint, as CI does (3.10 job only)
+
+# The icegrams-data wheel (192 MB), from the cached download if present
+python3 tools/data_package.py && uv build --wheel icegrams-data -o dist-data
+python3 tools/data_package.py --clean
 ```
 
-## Where the model lives today
+The dev environment installs the `icegrams-data/` subproject editable
+(`[tool.uv.sources]`). It holds no model, so lookups fall through to the
+download cache. Installing a built data wheel over it
+(`uv pip install dist-data/*.whl`) replaces it, as the tests workflow does.
+
+## Where the model lives
 
 The model is `trigrams.bin`, 213,218,123 bytes. It is an asset of the
 GitHub release `model-2026.08`; model releases are tagged separately from
 code releases. `src/icegrams/model.py` records the tag, URL, size and
-SHA-256. At runtime `model_filename()` looks, in this order, at:
+SHA-256. From 2.2.0 it is also the package `icegrams-data` 2026.8.0 (one
+`py3-none-any` wheel, 191,765,471 bytes, no sdist), a hard dependency of
+`icegrams` pinned as `icegrams-data == 2026.8.*` (`model.data_requirement()`
+derives that string from the tag, and `test_data_requirement` checks it
+against the installed metadata). At runtime `model_filename()` looks, in
+this order, at:
 
 1. `ICEGRAMS_MODEL_FILE`;
 2. `src/icegrams/resources/trigrams.bin` (a model built in place);
-3. the download cache (`~/.cache/icegrams/<tag>/`, or `ICEGRAMS_MODEL_DIR`).
+3. the installed `icegrams_data` package, if its `MODEL_RELEASE_TAG` is
+   the one in `model.py` and it holds the file;
+4. the download cache (`~/.cache/icegrams/<tag>/`, or `ICEGRAMS_MODEL_DIR`).
 
-`Ngrams()` never downloads anything. The user runs
-`python -m icegrams.download` once, and `ModelNotFoundError` is raised if
-they haven't. CI (`python-package.yml`) caches `~/.cache/icegrams` keyed by
-the tag and then runs the download step.
+`Ngrams()` never downloads anything; `ModelNotFoundError` says why the
+data package was not used. `python -m icegrams.download` remains as a
+fallback, and is a no-op when the data package holds the model.
+
+CI builds the data wheel once per model (`.github/actions/icegrams-data`:
+`tools/data_package.py` downloads the release asset and checks its size and
+SHA-256, then `uv build`) and caches it under a key made of the SHA-256 and
+a hash of `icegrams-data/**` and the script. All three workflows use it;
+`wheels.yml` passes it to the other OSes as an artifact, because caches
+are per OS.
 
 ## Releasing
 
-`wheels.yml` runs on every tag except `model-*`. It builds 30 wheels:
+`wheels.yml` runs on every tag except `model-*` and `data-*`. It builds 30
+wheels:
 
 - `cp310-abi3`, `cp314t` and `cp315t`;
 - PyPy `pp311` (pp73 and pp80) and `pp312` (pp80);
 - on Linux x86_64 and aarch64, macOS x86_64 and arm64, and Windows AMD64.
 
-A check step fails the run if any of the expected wheels is missing. A tag
+A check step fails the run if any of the expected wheels is missing, or if
+a wheel or the sdist contains a `.bin` file. Every wheel is smoke-tested
+by cibuildwheel with the run's own data wheel installed
+(`test/wheel_smoke.py`: real queries, plus the GIL check). A tag
 containing `test` (e.g. `2.2.0-test1`) is a dry run: everything is built
 and nothing is published. Delete the test tags afterwards. Other tags
 publish to PyPI through the `pypi` environment, whose only deployment rule
-is the tag pattern `*.*.*`. The changelog is in `README.md`, and the
-version is in `pyproject.toml`.
+is the tag pattern `*.*.*` (it matches `data-2026.8.0` too). The changelog
+is in `README.md`, and the version is in `pyproject.toml`.
+
+### Releasing icegrams-data
+
+`data-release.yml` runs on `data-*` tags and by hand (Actions > Run
+workflow). The tag must be `data-` plus the version in
+`icegrams-data/pyproject.toml`, e.g. `data-2026.8.0`; a tag containing
+`test` (`data-2026.8.0-test1`) or a manual run only builds and tests. It
+restores (or builds) the data wheel, tests it with an icegrams wheel built
+from the same commit, and publishes the wheel alone through the `pypi`
+environment. The PyPI Trusted Publisher of `icegrams-data` must name
+`data-release.yml` and `pypi`.
+
+Version scheme: `model-YYYY.MM` is `icegrams-data` `YYYY.M.N` (no leading
+zero; N for re-releases of the same model). `tools/data_package.py` fails
+if the version, `icegrams_data.MODEL_RELEASE_TAG` and `model.py` disagree.
+A new model therefore means: upload it to a new `model-*` GitHub release;
+update `model.py` (tag, size, SHA-256), `icegrams_data.MODEL_RELEASE_TAG`,
+the icegrams-data version and the pin in `pyproject.toml`; release
+`icegrams-data` first, then `icegrams`.
 
 ## Roadmap
 
 ### 2.2.0: the model as a PyPI package, `icegrams-data`
 
-Decided by villi on 2026-10-16. It ships as its own PR with its own version
-bump, after 2.1.0. `icegrams-data` is a **hard dependency** of `icegrams`,
-modelled on BinPackage's `islenska-data`; read
-`~/github/BinPackage/CLAUDE.md` and `RELEASING.md` ("Releasing the data
-package") first.
-
-Why:
+Decided by villi on 2026-10-16, modelled on BinPackage's `islenska-data`
+(`~/github/BinPackage/CLAUDE.md`, `RELEASING.md`). Why:
 
 - `pip install icegrams` then just works, with no second step to forget.
 - Lock files, wheelhouses and container layers capture the model, with its
   hash.
 - No per-user cache is needed.
-- The wheel smoke test can do real lookups (see below).
+- The wheel smoke test can do real lookups.
 - PyPI storage: the `icegrams` project uses ~7.0 GB of its 10 GB quota,
   because every wheel up to 1.1.7 bundled the old 38 MB model.
   `icegrams-data` gets its own 10 GB.
@@ -89,66 +130,35 @@ Why:
 The cost: each new environment downloads 192 MB from PyPI, which pip and uv
 then cache.
 
-**State on PyPI (2026-10-16):**
+**PyPI:** villi uploaded an empty `icegrams-data` 0.0.0 placeholder on
+2026-10-16 (PyPI raises limits only for existing projects), and PyPI set
+the project's file limit to 250 MiB on 2026-11-04 (pypi/support#12724).
+The wheel is 182.9 MiB.
 
-- villi uploaded an empty `icegrams-data` 0.0.0 placeholder (wheel and
-  sdist, ~1.5 KB each), because PyPI raises limits only for existing
-  projects. Creating a project needs an account-wide API token; a token
-  scoped to `icegrams` cannot create one.
-- The model wheel is 192 MB (183 MiB), over PyPI's 100 MiB per-file
-  default, so a File Limit Request for 250 MiB was filed:
-  [pypi/support#12724](https://github.com/pypi/support/issues/12724),
-  template `limit-request-file.yml`.
-- On 2026-10-20 the request was untouched, with ~60 limit requests ahead
-  of it and none closed since 2026-10-16.
+**Done on branch `icegrams-data` (2026-11-04):** the subproject
+`icegrams-data/` (import package `icegrams_data`: `MODEL_RELEASE_TAG`,
+`model_path()`), `tools/data_package.py`, the lookup order and error
+message in `model.py`, the `download.py` no-op, the pin and
+`[tool.uv.sources]` in `pyproject.toml`, version 2.2.0, the composite action
+and the three workflows (described above), `test/wheel_smoke.py`, tests of
+the lookup order and the pin, README and changelog. Tag scheme: `data-*`,
+as in BinPackage (a `model-*` tag would collide with the GitHub release
+tags of the model files).
 
-**When the limit is granted:**
+**Left before the release:**
 
-1. Check the granted size on the issue and on PyPI (the project's settings
-   page).
-2. On PyPI (villi): add a Trusted Publisher for `icegrams-data` that names
-   the new workflow file and the `pypi` environment. Consider moving the
-   project into the Miðeind organization, as was done with `islenska-data`.
-3. On GitHub (villi, repo settings): add a tag rule for the new tag pattern
-   to the `pypi` environment, next to `*.*.*`, as BinPackage has
-   `data-*.*.*`.
-4. Do the PR (design below), with a dry run of both workflows. Then release
-   `icegrams-data` first and `icegrams` 2.2.0 after it, so that 2.2.0 can
-   be installed as soon as it is published.
-
-**Design (sketch, following BinPackage):**
-
-- **Subproject `icegrams-data/`** with its own `pyproject.toml` and README.
-  The import package is `icegrams_data`, holding `trigrams.bin` and a few
-  lines that return its path. It is released as one pure `py3-none-any`
-  wheel, with no sdist (an sdist would just duplicate the model).
-- **Versions follow the model**, e.g. `icegrams-data 2026.8.0` for
-  `model-2026.08`. `icegrams` pins it exactly (`icegrams-data == 2026.8.*`),
-  because a new model changes query results. BinPackage pins only a data
-  format; that is the difference.
-- **Its own release workflow on `model-*` tags** (`wheels.yml` already
-  ignores them). Still open: `model-2026.08` already exists as the tag of
-  the GitHub release asset, so decide on the tag scheme for the package
-  release, e.g. `model-2026.8.0`. The workflow must check that the tag
-  matches the version, as BinPackage's `data-release.yml` does.
-- **`model.py` lookup order:** `ICEGRAMS_MODEL_FILE` → `resources/` → the
-  installed `icegrams_data` package → the download cache. Keep
-  `python -m icegrams.download` as a fallback for 2.0/2.1 setups and for
-  machines that cannot reach PyPI.
-- **Dev environment:** `[tool.uv.sources]` points at the local subproject
-  (editable, normally without the model), as in BinPackage.
-- **CI:**
-  - Build the data wheel once per model and cache it, like BinPackage's
-    composite action `.github/actions/islenska-data`.
-  - Run the tests against it instead of the download cache.
-  - Assert that no `.bin` file lands in an `icegrams` wheel or the sdist
-    (`MANIFEST.in` already prunes `resources/`).
-- **Wheel smoke test** (item 3 of the #10 review, deferred by villi "for a
-  later further discussion"): today `CIBW_TEST_COMMAND` only imports
-  `icegrams._trie` and checks the GIL. With the data wheel it can do real
-  queries, as BinPackage's `test/wheel_smoke.py` does.
-- **Docs:** update the README's Installation section, `model.py` and
-  `download.py` docstrings, and the changelog.
+1. On PyPI (villi): add a Trusted Publisher for `icegrams-data`: repository
+   `mideind/Icegrams`, workflow `data-release.yml`, environment `pypi`.
+   Consider moving the project into the Miðeind organization, as was done
+   with `islenska-data`, and yanking the 0.0.0 placeholder after 2026.8.0
+   is out.
+2. Dry runs: done 2026-11-04. `data-2026.8.0-test1` and `2.2.0-test1`
+   passed (30 wheels, each smoke-tested with the data wheel; both publish
+   jobs skipped), and the tags were deleted. Repeat them if the workflows
+   change before the release.
+3. Merge, then tag `data-2026.8.0` and, once it is on PyPI, `2.2.0` (add
+   the date to the changelog first). Check a fresh `pip install icegrams`
+   on a GIL CPython and on PyPy.
 
 ### With the next model rebuild (format change)
 

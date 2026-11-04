@@ -1,0 +1,57 @@
+name: icegrams-data wheel
+description: >
+  Provide the icegrams-data wheel (the trigram model, trigrams.bin) in
+  dist-data/. It is built once per model and set of package files and
+  cached; every later job and workflow run restores it from the cache.
+  Needs a checkout and a Python set up by the caller (actions/setup-python).
+
+# The cache key holds the model's SHA-256 from src/icegrams/model.py and a
+# hash of the icegrams-data package files and the staging script (the
+# version is in the wheel's name). Jobs and workflows share it through this
+# one action; a tag or PR run can restore what a run on master saved.
+# GitHub's caches are not shared between operating systems, so the
+# Windows and macOS jobs of wheels.yml get the wheel as an artifact.
+
+outputs:
+  cache-hit:
+    description: "'true' if the wheel came from the cache"
+    value: ${{ steps.restore.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute the cache key
+      id: key
+      shell: bash
+      run: |
+        sha=$(sed -n 's/^MODEL_SHA256 = "\(.*\)"/\1/p' src/icegrams/model.py)
+        test -n "$sha"
+        echo "key=icegrams-data-v1-${sha:0:16}-${{ hashFiles('icegrams-data/**', 'tools/data_package.py') }}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the cached icegrams-data wheel
+      id: restore
+      uses: actions/cache/restore@v6
+      with:
+        path: dist-data
+        key: ${{ steps.key.outputs.key }}
+
+    # tools/data_package.py downloads the model from its GitHub release
+    # and checks its size and SHA-256 against src/icegrams/model.py
+    - name: Build the icegrams-data wheel
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        python tools/data_package.py
+        python -m pip install uv
+        uv build --wheel icegrams-data -o dist-data
+        # Leave the checkout as a cache hit would: the model only in the wheel
+        python tools/data_package.py --clean
+        ls -l dist-data
+
+    - name: Save the icegrams-data wheel
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      continue-on-error: true  # another job may have saved it meanwhile
+      with:
+        path: dist-data
+        key: ${{ steps.key.outputs.key }}

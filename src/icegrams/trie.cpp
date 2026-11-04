@@ -4,7 +4,7 @@
 
    trie.cpp - C++ trie lookup module
 
-   Copyright (C) 2020-2025 Miðeind ehf.
+   Copyright (C) 2020-2026 Miðeind ehf.
    Original author: Vilhjálmur Þorsteinsson
 
    This software is licensed under the MIT License:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "icegrams"
-version = "2.1.0"
+version = "2.2.0"
 description = "Trigram statistics for Icelandic"
 authors = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
 maintainers = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
@@ -38,8 +38,12 @@ classifiers = [
 ]
 keywords = ["nlp", "trigram", "ngram", "trigrams", "ngrams", "icelandic"]
 requires-python = ">=3.10"
-# cffi 2.0 is the first that runs free-threaded Python without the GIL
-dependencies = ["cffi>=2.0.0", "certifi"]
+# cffi 2.0 is the first that runs free-threaded Python without the GIL.
+# icegrams-data holds the trigram model, and is pinned to the model this
+# release was tested with: model-2026.08 is icegrams-data 2026.8.x (see
+# icegrams-data/pyproject.toml; model.data_requirement() must match).
+# certifi is for the fallback download step (python -m icegrams.download).
+dependencies = ["cffi>=2.0.0", "certifi", "icegrams-data == 2026.8.*"]
 
 [project.urls]
 Repository = "https://github.com/mideind/Icegrams"
@@ -49,6 +53,12 @@ Repository = "https://github.com/mideind/Icegrams"
 dev = ["pytest", "ruff", "setuptools"]
 
 # *** Configuration of tools ***
+
+[tool.uv.sources]
+# In this repository, icegrams-data is the subproject in icegrams-data/. It
+# holds no model unless tools/data_package.py staged one, and then lookups
+# fall through to the download cache (model.model_filename()).
+icegrams-data = { path = "icegrams-data", editable = true }
 
 [tool.setuptools.packages.find]
 where = ["src"]
