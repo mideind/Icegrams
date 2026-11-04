@@ -3,24 +3,34 @@
 Guidance for Claude Code in this repository. `README.md` documents the API,
 `doc/overview.md` the design and `doc/2026-update.md` the 2026 model rebuild.
 
-## Status (2026-11-04): 2.1.0 released, 2.2.0 in a PR
+## Status (2026-11-04): 2.2.0 released
 
-**icegrams 2.1.0 was released on 2026-10-16** (tag `2.1.0` on `a233b53`,
-GitHub release 2.1.0, 30 wheels plus the sdist on PyPI). It contains:
+**icegrams 2.2.0 was released on 2026-11-04** (tag `2.2.0`, GitHub release
+2.2.0, 30 wheels plus the sdist on PyPI), together with **icegrams-data
+2026.8.0** (tag `data-2026.8.0`, one wheel, 191,765,470 bytes on PyPI).
+`pip install icegrams` now brings the model along; the download step is
+only a fallback. What went in:
 
-- #10, free-threaded CPython: `cp314t` and `cp315t` wheels, cffi >= 2.0,
-  Python >= 3.10.
-- #12, a faster `succ()`: `heapq.nlargest` keeps only the n best successors.
-- #11, capped stupid backoff for unseen bigrams and trigrams
-  (`Ngrams(backoff=False)` gives the old behaviour).
+- #14, the model as the PyPI package `icegrams-data` (see "Where the model
+  lives" and "Releasing icegrams-data" below).
+- #15, setuptools 84.2.1 in `uv.lock` (Dependabot alert #1). Dependabot's
+  own uv security update fails here with "No files have changed!", so such
+  lock bumps are done by hand with `uv lock --upgrade-package <name>`.
 
-The model is unchanged since 2.0.0: `model-2026.08`.
+Checked after the release: fresh `pip install icegrams==2.2.0` from PyPI,
+with an empty HOME, on CPython 3.14 (`cp310-abi3` wheel) and PyPy 3.12
+(`pp312-pypy312_pp80`): the model comes from `icegrams_data` and
+`test/wheel_smoke.py` passes. The `icegrams-data` model is byte-identical
+to the `model-2026.08` asset.
 
-**Next: 2.2.0, the `icegrams-data` package.** PyPI set its file limit to
-250 MiB on 2026-11-04
-([pypi/support#12724](https://github.com/pypi/support/issues/12724), closed).
-The implementation is on branch `icegrams-data` (see "2.2.0" under the
-Roadmap for what it does and what is left before the release).
+2.1.0 (2026-10-16) brought free-threaded CPython (#10), a faster `succ()`
+(#12) and capped stupid backoff (#11). The model is unchanged since 2.0.0:
+`model-2026.08`.
+
+Gotcha: `uv pip install <path to this checkout>` applies
+`[tool.uv.sources]` and so installs the empty local `icegrams-data`
+subproject instead of the PyPI package; use `--no-sources` (or a built
+wheel) when testing a checkout against the published model.
 
 ## Key commands
 
@@ -113,7 +123,7 @@ the icegrams-data version and the pin in `pyproject.toml`; release
 
 ## Roadmap
 
-### 2.2.0: the model as a PyPI package, `icegrams-data`
+### Done in 2.2.0: the model as a PyPI package, `icegrams-data`
 
 Decided by villi on 2026-10-16, modelled on BinPackage's `islenska-data`
 (`~/github/BinPackage/CLAUDE.md`, `RELEASING.md`). Why:
@@ -135,30 +145,15 @@ then cache.
 the project's file limit to 250 MiB on 2026-11-04 (pypi/support#12724).
 The wheel is 182.9 MiB.
 
-**Done on branch `icegrams-data` (2026-11-04):** the subproject
-`icegrams-data/` (import package `icegrams_data`: `MODEL_RELEASE_TAG`,
-`model_path()`), `tools/data_package.py`, the lookup order and error
-message in `model.py`, the `download.py` no-op, the pin and
-`[tool.uv.sources]` in `pyproject.toml`, version 2.2.0, the composite action
-and the three workflows (described above), `test/wheel_smoke.py`, tests of
-the lookup order and the pin, README and changelog. Tag scheme: `data-*`,
-as in BinPackage (a `model-*` tag would collide with the GitHub release
-tags of the model files).
+**Released on 2026-11-04** (#14; tags `data-2026.8.0` and `2.2.0`). Tag
+scheme: `data-*`, as in BinPackage (a `model-*` tag would collide with the
+GitHub release tags of the model files). The PyPI Trusted Publisher of
+`icegrams-data` (data-release.yml, environment `pypi`) was added by villi
+the same day.
 
-**Left before the release:**
-
-1. On PyPI (villi): add a Trusted Publisher for `icegrams-data`: repository
-   `mideind/Icegrams`, workflow `data-release.yml`, environment `pypi`.
-   Consider moving the project into the Miðeind organization, as was done
-   with `islenska-data`, and yanking the 0.0.0 placeholder after 2026.8.0
-   is out.
-2. Dry runs: done 2026-11-04. `data-2026.8.0-test1` and `2.2.0-test1`
-   passed (30 wheels, each smoke-tested with the data wheel; both publish
-   jobs skipped), and the tags were deleted. Repeat them if the workflows
-   change before the release.
-3. Merge, then tag `data-2026.8.0` and, once it is on PyPI, `2.2.0` (add
-   the date to the changelog first). Check a fresh `pip install icegrams`
-   on a GIL CPython and on PyPy.
+**Optional follow-ups (villi, on PyPI):** move `icegrams-data` into the
+Miðeind organization, as was done with `islenska-data`, and yank the empty
+0.0.0 placeholder.
 
 ### With the next model rebuild (format change)
 
