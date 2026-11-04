@@ -488,7 +488,7 @@ python -m pytest
   `icegrams-data` (version 2026.8.0, the unchanged model of 2.0.0), which
   `icegrams` now depends on, so the separate download step
   `python -m icegrams.download` is no longer needed. It remains as a
-  fallback for installations without `icegrams-data`. (unreleased)
+  fallback for installations without `icegrams-data`. (2026-11-04)
 * Version 2.1.0: `prob()` and `logprob()` now back off to the next lower
   n-gram order for bigrams and trigrams that do not occur in the database
   ("stupid backoff", factor `BACKOFF_FACTOR` = 0.4, capped so that an unseen
