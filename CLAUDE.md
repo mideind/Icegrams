@@ -152,8 +152,10 @@ tags of the model files).
    Consider moving the project into the Miðeind organization, as was done
    with `islenska-data`, and yanking the 0.0.0 placeholder after 2026.8.0
    is out.
-2. Dry runs: `data-2026.8.0-test1` and `2.2.0-test1` (delete both tags
-   afterwards).
+2. Dry runs: done 2026-11-04. `data-2026.8.0-test1` and `2.2.0-test1`
+   passed (30 wheels, each smoke-tested with the data wheel; both publish
+   jobs skipped), and the tags were deleted. Repeat them if the workflows
+   change before the release.
 3. Merge, then tag `data-2026.8.0` and, once it is on PyPI, `2.2.0` (add
    the date to the changelog first). Check a fresh `pip install icegrams`
    on a GIL CPython and on PyPy.
