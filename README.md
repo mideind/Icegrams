@@ -129,10 +129,10 @@ where no backoff was done, pass `backoff=False`:
 ng = Ngrams(backoff=False)
 ```
 
-Note that the trigram model file must be downloaded once before an
-`Ngrams` instance can be created, as described in the
-[Installation](#installation) section. If the model is not present,
-the `Ngrams()` constructor raises `icegrams.ModelNotFoundError`.
+The trigram model is installed with the `icegrams-data` package, a
+dependency of `icegrams`; see the [Installation](#installation) section.
+If the model is not present, the `Ngrams()` constructor raises
+`icegrams.ModelNotFoundError`.
 
 ### The Ngrams class
 
@@ -413,32 +413,44 @@ To install this package:
 pip install icegrams
 ```
 
-The trigram model file (~213 MB) is not included in the package itself.
-It is published as an asset of a GitHub release of this repository and
-must be downloaded once, after installing the package:
+This also installs the trigram model, which is published on PyPI as a
+package of its own, [`icegrams-data`](https://pypi.org/project/icegrams-data/)
+(a 192 MB wheel, holding the 213 MB model file `trigrams.bin`). `icegrams`
+requires the `icegrams-data` release of the model it was tested with, e.g.
+`icegrams-data == 2026.8.*` for the model of August 2026, so lock files,
+wheelhouses and container images capture the model together with the code.
+pip and uv cache the wheel, so it is downloaded once per machine. Creating
+an `Ngrams` instance never accesses the network.
+
+The model is also published as an asset of a GitHub release of this
+repository. Where `icegrams-data` can't be installed (for instance with
+`pip install --no-deps`, or on a machine that cannot reach PyPI), the model
+can be downloaded from there once instead:
 
 ```bash
 python -m icegrams.download
 ```
 
 This stores the model in a per-user cache directory (on Linux typically
-`~/.cache/icegrams/`), verifies its checksum, and is a no-op if the
-model is already there. The same step is available from Python as
-`icegrams.download.download_model()`. Downloading is deliberately a separate
-setup step: creating an `Ngrams` instance never accesses the network,
-it only checks that the model is present and raises
-`icegrams.ModelNotFoundError` if it isn't.
+`~/.cache/icegrams/`), verifies its checksum, and is a no-op if the model
+is already there, or if the installed `icegrams-data` package holds it.
+The same step is available from Python as
+`icegrams.download.download_model()`. This was the way to install the model
+for versions 2.0 and 2.1.
 
-The following environment variables affect where the model is stored
-and looked up:
+The model is looked up in this order: the file named by
+`ICEGRAMS_MODEL_FILE`, a model built in place in the package's `resources`
+directory, the `icegrams-data` package, and the download cache. If none
+holds the model, `Ngrams()` raises `icegrams.ModelNotFoundError`. These
+environment variables affect where the model is stored and looked up:
 
-* `ICEGRAMS_MODEL_DIR`: base directory for the model, instead of the
-  per-user cache directory. The model is stored in a subdirectory named
-  after the model release (e.g. `model-2026.08`), so a package upgrade
-  that ships a new model requires running the download step again.
 * `ICEGRAMS_MODEL_FILE`: path of an existing model file to use directly,
   skipping the lookup entirely (useful for offline or air-gapped
   environments).
+* `ICEGRAMS_MODEL_DIR`: base directory for the downloaded model, instead
+  of the per-user cache directory. The model is stored in a subdirectory
+  named after the model release (e.g. `model-2026.08`), so a package
+  upgrade that ships a new model requires running the download step again.
 * `ICEGRAMS_MODEL_URL`: alternative URL for the download step to fetch
   the model from. The pinned checksum is only verified for the
   official URL.
@@ -451,11 +463,14 @@ If you want to be able to edit the source, do like so (assuming you have **git**
 ```bash
 git clone https://github.com/mideind/Icegrams
 cd Icegrams
-# [ Activate your virtualenv here if you have one ]
-python setup.py develop
+uv sync --extra dev
+uv run python -m icegrams.download   # the model, once
 ```
 
-The package source code is now in `./src/icegrams`.
+The package source code is now in `./src/icegrams`. In this environment,
+uv installs `icegrams-data` from the subproject in `./icegrams-data`, which
+holds no model, so the model comes from the download step. (`pip install -e
+".[dev]"` installs `icegrams-data` from PyPI instead, with the model.)
 
 ## Tests
 
@@ -469,6 +484,11 @@ python -m pytest
 
 ## Changelog
 
+* Version 2.2.0: The trigram model is installed from PyPI as the package
+  `icegrams-data` (version 2026.8.0, the unchanged model of 2.0.0), which
+  `icegrams` now depends on, so the separate download step
+  `python -m icegrams.download` is no longer needed. It remains as a
+  fallback for installations without `icegrams-data`. (unreleased)
 * Version 2.1.0: `prob()` and `logprob()` now back off to the next lower
   n-gram order for bigrams and trigrams that do not occur in the database
   ("stupid backoff", factor `BACKOFF_FACTOR` = 0.4, capped so that an unseen

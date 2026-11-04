@@ -9,7 +9,24 @@ on:
     branches: [ "*" ]
 
 jobs:
+  # Provides the icegrams-data wheel (the trigram model) for the jobs below:
+  # restored from the cache, or built and cached here, once per model (see
+  # .github/actions/icegrams-data). The jobs restore it the same way, and
+  # build it themselves only if the restore misses (GitHub's cache is
+  # eventually consistent).
+  prepare-cache:
+    runs-on: ubuntu-26.04
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+    - name: Provide the icegrams-data wheel
+      uses: ./.github/actions/icegrams-data
+
   build:
+    needs: prepare-cache
     runs-on: ubuntu-26.04
     strategy:
       fail-fast: true
@@ -24,32 +41,23 @@ jobs:
       uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python-version }}
-    # The trigram model is fetched by an explicit download step (below)
-    # and cached between runs, keyed by the model release tag
-    - name: Determine the model release tag
-      id: model
-      run: |
-        TAG=$(sed -n 's/^MODEL_RELEASE_TAG = "\(.*\)"/\1/p' src/icegrams/model.py)
-        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-    - name: Cache the trigrams model
-      uses: actions/cache@v6
-      with:
-        path: ~/.cache/icegrams
-        key: icegrams-${{ steps.model.outputs.tag }}
+    - name: Provide the icegrams-data wheel
+      uses: ./.github/actions/icegrams-data
+    # [tool.uv.sources] installs the local icegrams-data subproject, which
+    # holds no model; the wheel installed after it replaces it
     - name: Install dependencies
       run: |
         python -m pip install uv
         uv pip install --system --upgrade wheel setuptools pytest packaging
         uv pip install --system -e .
+        uv pip install --system dist-data/*.whl
+        python -c "import icegrams_data; from icegrams.model import model_filename; assert model_filename() == icegrams_data.model_path(), model_filename()"
     # Linting once is enough
     - name: Lint with ruff
       if: matrix.python-version == '3.10'
       run: |
         uv pip install --system ruff
         ruff check src/icegrams
-    - name: Download the trigrams model
-      run: |
-        python -m icegrams.download
     - name: Test with pytest
       run: |
         python -m pytest
@@ -59,3 +67,41 @@ jobs:
       run: |
         uv pip install --system pytest-run-parallel
         python -m pytest --parallel-threads=8
+
+  # The split into icegrams (code) and icegrams-data (the model): build an
+  # icegrams wheel and sdist, which hold no model, install the wheel with
+  # the icegrams-data wheel into a fresh environment, and run the test
+  # suite and the wheel smoke test there. Nothing is published.
+  data-package:
+    needs: prepare-cache
+    runs-on: ubuntu-26.04
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up Python
+      uses: actions/setup-python@v7
+      with:
+        python-version: '3.13'
+
+    - name: Provide the icegrams-data wheel
+      uses: ./.github/actions/icegrams-data
+
+    - name: Install uv
+      run: python -m pip install uv
+
+    - name: Build an icegrams wheel and sdist without the model
+      run: |
+        uv build -o dist-code
+        ls -l dist-data dist-code
+        if unzip -l dist-code/*.whl | grep -q '\.bin$'; then
+          echo "The icegrams wheel contains a model file"; exit 1
+        fi
+        if tar tzf dist-code/*.tar.gz | grep -q '\.bin$'; then
+          echo "The icegrams sdist contains a model file"; exit 1
+        fi
+
+    - name: Test the two wheels together
+      run: |
+        uv venv /tmp/split
+        uv pip install --python /tmp/split/bin/python dist-data/*.whl dist-code/*.whl pytest
+        /tmp/split/bin/python test/wheel_smoke.py
+        /tmp/split/bin/python -m pytest -p no:cacheprovider test

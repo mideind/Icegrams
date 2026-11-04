@@ -44,6 +44,9 @@ bin/
 build/
 develop-eggs/
 dist/
+# Wheels built by CI and by hand: the icegrams-data wheel, an icegrams wheel
+dist-data/
+dist-code/
 eggs/
 lib/
 lib64/

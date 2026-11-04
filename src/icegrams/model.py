@@ -29,19 +29,23 @@ This software is licensed under the MIT License:
 
 
 This module locates the compressed trigram model file (trigrams.bin)
-at runtime. It never downloads anything: the model is fetched once,
-after installing the package, by the separate setup step
+at runtime. The model is normally installed with the icegrams-data
+package, a dependency of icegrams, and the download step
 
     python -m icegrams.download
 
-(see download.py). Creating an Ngrams instance only looks for a model
-file, in this order:
+(see download.py) remains as a fallback, e.g. for installations
+of icegrams without its dependencies. Creating an Ngrams instance
+never downloads anything; it only looks for a model file, in this
+order:
 
     1. The file named by the ICEGRAMS_MODEL_FILE environment variable,
        if set.
     2. A model built in place in the package's resources directory
        (the output location of the icegrams.ngrams compressor).
-    3. The model cache directory, which is where the download step
+    3. The installed icegrams-data package, if it holds the model of
+       this release (MODEL_RELEASE_TAG).
+    4. The model cache directory, which is where the download step
        puts the file. Its location can be overridden with the
        ICEGRAMS_MODEL_DIR environment variable.
 
@@ -49,13 +53,18 @@ If no model is found, ModelNotFoundError is raised.
 
 """
 
+from typing import Optional, Tuple
+
 import os
+import re
 import sys
 
 # The GitHub release that the current model is published under.
-# Model releases are tagged independently of code releases, so a new
-# model can be shipped by uploading it to a new model-* release and
-# updating the constants below.
+# Model releases are tagged independently of code releases. A new model
+# is shipped by uploading it to a new model-* release, updating the
+# constants below, and releasing a matching icegrams-data (its version
+# and MODEL_RELEASE_TAG follow this tag; tools/data_package.py checks
+# that they agree) and an icegrams that requires it (pyproject.toml).
 MODEL_RELEASE_TAG = "model-2026.08"
 MODEL_BASENAME = "trigrams.bin"
 MODEL_URL = (
@@ -76,6 +85,17 @@ ENV_MODEL_DIR = "ICEGRAMS_MODEL_DIR"
 ENV_MODEL_URL = "ICEGRAMS_MODEL_URL"
 
 DOWNLOAD_COMMAND = "python -m icegrams.download"
+
+DATA_PACKAGE = "icegrams-data"
+
+
+def data_requirement() -> str:
+    """The requirement on icegrams-data that matches MODEL_RELEASE_TAG:
+    model-2026.08 is in icegrams-data 2026.8.x. pyproject.toml must
+    declare exactly this dependency (a test checks it)."""
+    m = re.fullmatch(r"model-(\d{4})\.(\d{2})", MODEL_RELEASE_TAG)
+    assert m is not None, MODEL_RELEASE_TAG
+    return "{0}=={1}.{2}.*".format(DATA_PACKAGE, int(m.group(1)), int(m.group(2)))
 
 _PATH = os.path.dirname(__file__) or "."
 
@@ -132,6 +152,30 @@ def _is_model_file(path: str) -> bool:
         return False
 
 
+def _data_package_model() -> Tuple[Optional[str], str]:
+    """Return the path of the model in the installed icegrams-data
+    package, or None and the reason why it can't be used. A source
+    checkout of icegrams-data (the editable install of a development
+    environment) holds no model, and a package of another model
+    release is ignored."""
+    try:
+        import icegrams_data  # type: ignore[import-not-found,unused-ignore]
+    except ImportError:
+        return None, "{0} is not installed".format(DATA_PACKAGE)
+    tag = getattr(icegrams_data, "MODEL_RELEASE_TAG", None)
+    if tag != MODEL_RELEASE_TAG:
+        return None, "the installed {0} {1} holds {2}, not {3}".format(
+            DATA_PACKAGE,
+            getattr(icegrams_data, "__version__", "?"),
+            tag,
+            MODEL_RELEASE_TAG,
+        )
+    path = icegrams_data.model_path()
+    if not _is_model_file(path):
+        return None, "the installed {0} holds no model file".format(DATA_PACKAGE)
+    return path, ""
+
+
 def model_filename() -> str:
     """Return the path of the trigrams.bin model file. This function
     never downloads anything; it raises ModelNotFoundError if the
@@ -150,7 +194,11 @@ def model_filename() -> str:
     local = os.path.join(_PATH, "resources", MODEL_BASENAME)
     if _is_model_file(local):
         return local
-    # 3. The model fetched by the download step
+    # 3. The icegrams-data package, the normal case
+    packaged, reason = _data_package_model()
+    if packaged is not None:
+        return packaged
+    # 4. The model fetched by the download step
     try:
         cached = _cached_model_path()
     except RuntimeError as e:
@@ -158,9 +206,18 @@ def model_filename() -> str:
     if _is_model_file(cached):
         return cached
     raise ModelNotFoundError(
-        "The Icegrams trigram model was not found at {0}.\n"
-        "The model is not bundled with the package; download it once "
-        "by running\n\n    {1}\n\n"
-        "or point the {2} environment variable at an existing model "
-        "file.".format(cached, DOWNLOAD_COMMAND, ENV_MODEL_FILE)
+        "The Icegrams trigram model was not found: {0}, and there is no "
+        "downloaded model at {1}.\n"
+        "The model comes with the {2} package, a dependency of icegrams; "
+        "install it with\n\n    pip install \"{3}\"\n\n"
+        "or download the model once by running\n\n    {4}\n\n"
+        "or point the {5} environment variable at an existing model "
+        "file.".format(
+            reason,
+            cached,
+            DATA_PACKAGE,
+            data_requirement(),
+            DOWNLOAD_COMMAND,
+            ENV_MODEL_FILE,
+        )
     )

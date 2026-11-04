@@ -1,0 +1,102 @@
+name: data-release
+
+# Builds the icegrams-data package (the trigram model of icegrams) and
+# publishes its wheel to PyPI.
+#
+# - Pushing a tag data-X.Y.Z, where X.Y.Z is the version in
+#   icegrams-data/pyproject.toml, builds, tests and publishes.
+# - A tag that contains 'test' (data-2026.8.0-test1), or a manual run
+#   (Actions > data-release > Run workflow), builds and tests only.
+#
+# The PyPI Trusted Publisher of icegrams-data names this file
+# (data-release.yml) and the environment 'pypi': keep both.
+# Data tags are excluded from wheels.yml, which publishes icegrams, and
+# model-* tags (the GitHub releases that hold trigrams.bin as an asset)
+# trigger neither workflow.
+
+on:
+  push:
+    tags:
+      - 'data-*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and test the icegrams-data wheel
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+
+      - name: Check the tag against the package version
+        if: startsWith(github.ref, 'refs/tags/data-') && !contains(github.ref, 'test')
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('icegrams-data/pyproject.toml', 'rb'))['project']['version'])")
+          if [ "data-$version" != "${GITHUB_REF_NAME}" ]; then
+            echo "The tag ${GITHUB_REF_NAME} does not match icegrams-data version $version"
+            exit 1
+          fi
+
+      # The wheel is built once per model and cached, with the same key as
+      # in the other workflows (.github/actions/icegrams-data), so a release
+      # normally publishes the wheel that the tests on master used. A build
+      # checks the model's size and SHA-256 against src/icegrams/model.py,
+      # and that the package version and MODEL_RELEASE_TAG belong to it.
+      - name: Provide the icegrams-data wheel
+        uses: ./.github/actions/icegrams-data
+
+      - name: Install uv
+        run: python -m pip install uv
+
+      # The same check as the data-package job of the tests workflow: an
+      # icegrams wheel without a model, with this data wheel, must pass the
+      # test suite and the wheel smoke test
+      - name: Test the wheel with icegrams
+        run: |
+          uv build --wheel -o dist-code
+          uv venv /tmp/split
+          uv pip install --python /tmp/split/bin/python dist-data/*.whl dist-code/*.whl pytest
+          /tmp/split/bin/python test/wheel_smoke.py
+          /tmp/split/bin/python -m pytest -p no:cacheprovider test
+
+      - name: List the wheel
+        run: |
+          ls -l dist-data
+          unzip -l dist-data/*.whl
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: icegrams-data-dist
+          path: dist-data/*.whl
+          retention-days: 7
+
+  publish:
+    name: Publish icegrams-data to PyPI
+    needs: build
+    runs-on: ubuntu-26.04
+    # Only for a data tag without 'test', never for a manual run
+    if: startsWith(github.ref, 'refs/tags/data-') && !contains(github.ref, 'test')
+    environment:
+      name: pypi
+      url: https://pypi.org/project/icegrams-data/
+    permissions:
+      id-token: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: icegrams-data-dist
+          path: dist-data/
+
+      - name: List the distribution
+        run: ls -l dist-data/
+
+      # The wheel only: an sdist would just be a second copy of the model
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist-data/

@@ -144,11 +144,12 @@ wheels = [
 
 [[package]]
 name = "icegrams"
-version = "2.1.0"
+version = "2.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
     { name = "cffi" },
+    { name = "icegrams-data" },
 ]
 
 [package.optional-dependencies]
@@ -162,11 +163,17 @@ dev = [
 requires-dist = [
     { name = "certifi" },
     { name = "cffi", specifier = ">=2.0.0" },
+    { name = "icegrams-data", editable = "icegrams-data" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "setuptools", marker = "extra == 'dev'" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "icegrams-data"
+version = "2026.8.0"
+source = { editable = "icegrams-data" }
 
 [[package]]
 name = "iniconfig"

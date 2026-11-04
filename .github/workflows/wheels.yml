@@ -7,10 +7,42 @@ on:
       # Model releases (tags like model-2026.08) only carry the
       # trigrams.bin asset and don't produce a package release
       - '!model-*'
+      # data-X.Y.Z tags release icegrams-data (data-release.yml), not icegrams
+      - '!data-*'
 
 jobs:
+  # First job: provide the icegrams-data wheel (the trigram model). The
+  # icegrams wheels do not contain the model (icegrams depends on
+  # icegrams-data, which data-release.yml publishes); this data wheel is
+  # only installed to smoke-test each icegrams wheel before it is published.
+  prepare_data:
+    name: Prepare the icegrams-data wheel
+    runs-on: ubuntu-26.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      # The same cached wheel as in the tests workflow (python-package.yml),
+      # so a release normally finds it already built
+      - name: Provide the icegrams-data wheel
+        uses: ./.github/actions/icegrams-data
+
+      # An artifact, not the cache: caches are not shared between operating
+      # systems
+      - name: Upload the icegrams-data wheel
+        uses: actions/upload-artifact@v7
+        with:
+          name: icegrams-data-wheel
+          path: dist-data/*.whl
+          retention-days: 1
+
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
+    needs: prepare_data
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -32,10 +64,12 @@ jobs:
       # x86_64 on ubuntu-26.04, aarch64 on ubuntu-26.04-arm
       CIBW_ARCHS_LINUX: "native"
       CIBW_BUILD_FRONTEND: "build"
-      # The extension must import, and on free-threaded Python keep the GIL off
-      CIBW_TEST_COMMAND: >-
-        python -c "import sys, sysconfig, icegrams._trie;
-        assert not (sysconfig.get_config_var('Py_GIL_DISABLED') and sys._is_gil_enabled())"
+      # Smoke-test every wheel before it is published: install the
+      # icegrams-data wheel of this run first (it need not be on PyPI yet),
+      # then the wheel, and run real queries (and, on free-threaded Python,
+      # check that the GIL stays off)
+      CIBW_BEFORE_TEST: python -m pip install --no-index --find-links {project}/dist-data icegrams-data
+      CIBW_TEST_COMMAND: python {project}/test/wheel_smoke.py
 
     steps:
       - uses: actions/checkout@v7
@@ -44,6 +78,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
+
+      - name: Download the icegrams-data wheel
+        uses: actions/download-artifact@v8
+        with:
+          name: icegrams-data-wheel
+          path: dist-data/
 
       - name: Install cibuildwheel
         run: python -m pip install --upgrade pipx
@@ -64,24 +104,30 @@ jobs:
           CIBW_BUILD: pp311-*
 
       # cibuildwheel fails only if a build selector matches nothing at all,
-      # so check that every expected wheel was built for every architecture
+      # so check that every expected wheel was built for every architecture,
+      # and that none of them contains a model file
       - name: Check that every expected wheel was built
         shell: bash
         run: |
           ls -lh wheelhouse
           python - <<'PY'
-          import collections, glob, os, sys
+          import collections, glob, os, sys, zipfile
           expected = {
               "cp310-abi3", "cp314-cp314t", "cp315-cp315t",
               "pp311-pypy311_pp73", "pp311-pypy311_pp80", "pp312-pypy312_pp80",
           }
           archs = {"Linux": 1, "macOS": 2, "Windows": 1}[os.environ["RUNNER_OS"]]
           found = collections.defaultdict(set)
+          ok = True
           for w in glob.glob("wheelhouse/*.whl"):
+              with zipfile.ZipFile(w) as z:
+                  if any(n.endswith(".bin") for n in z.namelist()):
+                      ok = False
+                      print(f"{w} contains a model file")
               _, _, py, abi, plat = os.path.basename(w)[: -len(".whl")].split("-")
               arch = next(a for a in ("x86_64", "aarch64", "arm64", "amd64") if plat.endswith(a))
               found[arch].add(f"{py}-{abi}")
-          ok = len(found) == archs
+          ok = ok and len(found) == archs
           for arch, tags in sorted(found.items()):
               if tags != expected:
                   ok = False
@@ -111,6 +157,9 @@ jobs:
         run: |
           python -m pip install build
           python -m build --sdist
+          if tar tzf dist/*.tar.gz | grep '\.bin$'; then
+            echo "The sdist contains a model file"; exit 1
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
@@ -122,7 +171,8 @@ jobs:
     name: Publish to PyPI
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-26.04
-    # Only publish on version tags (e.g., 1.2.3)
+    # Only publish on version tags (e.g., 1.2.3). Release icegrams-data
+    # first (data-release.yml) when this version requires a new one.
     if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref, 'test')
     environment:
       name: pypi
