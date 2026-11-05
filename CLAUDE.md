@@ -3,29 +3,36 @@
 Guidance for Claude Code in this repository. `README.md` documents the API,
 `doc/overview.md` the design and `doc/2026-update.md` the 2026 model rebuild.
 
-## Status (2026-11-04): 2.2.0 released
+## Status (2026-11-05): 2.3.0 released
 
-**icegrams 2.2.0 was released on 2026-11-04** (tag `2.2.0`, GitHub release
-2.2.0, 30 wheels plus the sdist on PyPI), together with **icegrams-data
-2026.8.0** (tag `data-2026.8.0`, one wheel, 191,765,470 bytes on PyPI).
-`pip install icegrams` now brings the model along; the download step is
-only a fallback. What went in:
+**icegrams 2.3.0 was released on 2026-11-05** (tag `2.3.0`, GitHub release
+2.3.0, 30 wheels plus the sdist on PyPI), together with **icegrams-data
+2026.11.0** (tag `data-2026.11.0`, one wheel, 192,304,433 bytes) and the
+model release **`model-2026.11`**. What went in:
 
-- #14, the model as the PyPI package `icegrams-data` (see "Where the model
-  lives" and "Releasing icegrams-data" below).
-- #15, setuptools 84.2.1 in `uv.lock` (Dependabot alert #1). Dependabot's
-  own uv security update fails here with "No files have changed!", so such
-  lock bumps are done by hand with `uv lock --upgrade-package <name>`.
+- #16, model file format 2: the vocabulary is memory-mapped like the rest
+  of the model (private memory per process on load 22 MB → 2 MB).
+- #17, the README's Notes on how bigram and unigram counts are made, and a
+  compressor check for missing bigrams (see "Bigram and unigram counts").
+- #18, the release: `model-2026.11` is `model-2026.08` converted with
+  `tools/upgrade_model.py` (the same words and counts), required as
+  `icegrams-data == 2026.11.*`.
 
-Checked after the release: fresh `pip install icegrams==2.2.0` from PyPI,
-with an empty HOME, on CPython 3.14 (`cp310-abi3` wheel) and PyPy 3.12
-(`pp312-pypy312_pp80`): the model comes from `icegrams_data` and
-`test/wheel_smoke.py` passes. The `icegrams-data` model is byte-identical
-to the `model-2026.08` asset.
+Kneser-Ney was evaluated and declined (see the Roadmap).
 
-2.1.0 (2026-10-16) brought free-threaded CPython (#10), a faster `succ()`
-(#12) and capped stupid backoff (#11). The model is unchanged since 2.0.0:
-`model-2026.08`.
+Checked after the release:
+- fresh `pip install icegrams==2.3.0` from PyPI with an empty HOME on
+  CPython 3.14 (`cp310-abi3`), 3.14t and PyPy 3.12: `test/wheel_smoke.py`
+  passes;
+- an upgrade from 2.2.0 moves `icegrams-data` from 2026.8.0 to 2026.11.0;
+- the model in the PyPI data wheel is byte-identical to the `model-2026.11`
+  asset.
+
+Earlier releases:
+- 2.2.0 (2026-11-04): the model as the PyPI package `icegrams-data` (#14).
+- 2.1.0 (2026-10-16): free-threaded CPython (#10), a faster `succ()` (#12)
+  and capped stupid backoff (#11).
+- 2.0.0: the 2026 model.
 
 Gotcha: `uv pip install <path to this checkout>` applies
 `[tool.uv.sources]` and so installs the empty local `icegrams-data`
@@ -100,7 +107,16 @@ a wheel or the sdist contains a `.bin` file. Every wheel is smoke-tested
 by cibuildwheel with the run's own data wheel installed
 (`test/wheel_smoke.py`: real queries, plus the GIL check). A tag
 containing `test` (e.g. `2.2.0-test1`) is a dry run: everything is built
-and nothing is published. Delete the test tags afterwards. Other tags
+and nothing is published. Delete the test tags afterwards.
+
+Do a wheels dry run only when the build itself changed: `trie.cpp`,
+`trie.h`, `trie_build.py`, the build settings in `pyproject.toml`, or the
+workflows. Otherwise the PR's CI is enough, because the real tag run
+publishes only after every wheel has been built and smoke-tested; a
+failure there publishes nothing. (For 2.3.0 a dry run built the same 30
+wheels from the same tree as the tag run, about 25 minutes of CI for
+nothing; villi chose this rule on 2026-11-05 over reusing the dry run's
+artifacts.) The `data-*` dry run is quick and can stay. Other tags
 publish to PyPI through the `pypi` environment, whose only deployment rule
 is the tag pattern `*.*.*` (it matches `data-2026.8.0` too). The changelog
 is in `README.md`, and the version is in `pyproject.toml`.
@@ -158,7 +174,7 @@ villi moved `icegrams-data` into the PyPI organization `mideind` on
 2026-11-05, as was done with `islenska-data`, and yanked the empty 0.0.0
 placeholder the same day. Nothing is left of the 2.2.0 work.
 
-### Next release: model format 2 (vocabulary in the mmap)
+### Done in 2.3.0: model format 2 (vocabulary in the mmap)
 
 - **The vocabulary in the memory map** (#16, merged 2026-11-05). Format 1
   (`Reynir 001.00.00`) gzips the vocabulary, so `load()` unpacked it into
@@ -176,14 +192,12 @@ placeholder the same day. Nothing is left of the 2.2.0 work.
   `load()` still reads format 1. `tools/upgrade_model.py` converts format
   1 to format 2 by rewriting only the vocabulary section, the last one in
   the file, checks every word, and prints `MODEL_SIZE` and
-  `MODEL_SHA256`. `MODEL_RELEASE_TAG` stays `model-2026.08` (format 1)
-  until the release.
-- **Counts documented** (PR `counts-doc`): see "Bigram and unigram
+  `MODEL_SHA256`.
+- **Counts documented** (#17): see "Bigram and unigram
   counts" below.
 
-Release steps: convert the model with `tools/upgrade_model.py`; upload it
-as a new `model-*` GitHub release; update `model.py` (tag, size,
-SHA-256), then follow "Releasing icegrams-data" and "Releasing".
+Released as `model-2026.11` / `icegrams-data` 2026.11.0 / icegrams 2.3.0
+on 2026-11-05.
 
 GreynirKbd reads `trigrams.bin` with its own C++ reader (format 1 only,
 zlib for the vocabulary) and builds its model with this repo's compressor,
