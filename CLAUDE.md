@@ -152,8 +152,8 @@ GitHub release tags of the model files). The PyPI Trusted Publisher of
 the same day.
 
 villi moved `icegrams-data` into the PyPI organization `mideind` on
-2026-11-05, as was done with `islenska-data`. **Optional follow-up
-(villi, on PyPI):** yank the empty 0.0.0 placeholder (wheel and sdist).
+2026-11-05, as was done with `islenska-data`, and yanked the empty 0.0.0
+placeholder the same day. Nothing is left of the 2.2.0 work.
 
 ### With the next model rebuild (format change)
 
