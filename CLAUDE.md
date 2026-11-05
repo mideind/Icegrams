@@ -155,13 +155,9 @@ villi moved `icegrams-data` into the PyPI organization `mideind` on
 2026-11-05, as was done with `islenska-data`, and yanked the empty 0.0.0
 placeholder the same day. Nothing is left of the 2.2.0 work.
 
-### Next release: model format 2 (vocabulary in the mmap, Kneser-Ney)
+### Next release: model format 2 (vocabulary in the mmap)
 
-Decided by villi on 2026-11-05: both changes go into one release, with
-one new model release (`model-YYYY.MM`) and a matching `icegrams-data`.
-Neither needs the corpus: both are derived from the `model-2026.08` file.
-
-- **The vocabulary in the memory map** (PR `vocab-mmap`). Format 1
+- **The vocabulary in the memory map** (#16, merged 2026-11-05). Format 1
   (`Reynir 001.00.00`) gzips the vocabulary, so `load()` unpacked it into
   a 21.7 MB `bytes` object in every process, the only part of the model
   not in shared, file-backed mmap pages. Format 2 (`Reynir 002.00.00`,
@@ -174,30 +170,70 @@ Neither needs the corpus: both are derived from the `model-2026.08` file.
   - file size: 213.2 MB → 224.6 MB;
   - gzip size, so roughly the wheel size: +0.5 MB.
 
-  `load()` still reads format 1, so an old model in `ICEGRAMS_MODEL_FILE`
-  keeps working. `tools/upgrade_model.py` converts format 1 to format 2:
-  it rewrites only the vocabulary section, the last one in the file,
-  checks every word, and prints `MODEL_SIZE` and `MODEL_SHA256`.
-  `MODEL_RELEASE_TAG` stays `model-2026.08` (format 1) until the release,
-  so CI tests the format 1 path on the real model, and both formats on a
-  synthetic model (`test_vocab_formats`, `test_upgrade_model_file`).
-- **Kneser-Ney counts** (follow-up PR, into format 2 before it is
-  released), from the "Future work" note in PR #11. Stupid backoff gives
-  well-ordered scores, but they are not normalized probabilities.
-  Interpolated Kneser-Ney needs:
-  - per-context continuation counts, which can be derived from the trie's
-    child ranges;
-  - one extra vocabulary-sized array of `N1+(• w)`, written by
-    `NgramStorage.compress()` and by `upgrade_model_file()`.
+  `load()` still reads format 1. `tools/upgrade_model.py` converts format
+  1 to format 2 by rewriting only the vocabulary section, the last one in
+  the file, checks every word, and prints `MODEL_SIZE` and
+  `MODEL_SHA256`. `MODEL_RELEASE_TAG` stays `model-2026.08` (format 1)
+  until the release.
+- **Counts documented** (PR `counts-doc`): see "Bigram and unigram
+  counts" below.
 
-  The discount D is about 0.75, or can be estimated from the
-  count-of-counts that `bucket_view.py` produces. Since format 2 is not
-  released yet, the KN section can be added to it without another header.
+Release steps: convert the model with `tools/upgrade_model.py`; upload it
+as a new `model-*` GitHub release; update `model.py` (tag, size,
+SHA-256), then follow "Releasing icegrams-data" and "Releasing".
 
-Release steps, once both are merged: convert the model with
-`tools/upgrade_model.py`; upload it as a new `model-*` GitHub release;
-update `model.py` (tag, size, SHA-256), then follow "Releasing
-icegrams-data" and "Releasing".
+GreynirKbd reads `trigrams.bin` with its own C++ reader (format 1 only,
+zlib for the vocabulary) and builds its model with this repo's compressor,
+which now writes format 2. villi is having it adapted to format 2
+(2026-11-05).
+
+### Bigram and unigram counts (found 2026-11-05)
+
+Models are compressed with `add_all_bigrams=True`. A frequency cutoff
+removes, for some trigrams (u v w), every trigram that starts with (v w);
+without the flag that bigram would be missing, and the trigram (stored as
+a position among v's bigrams) could not be stored. In model-2026.08 that
+is 3.1 M bigrams and 3.27 M trigrams. The compressor now raises
+`ValueError` in that case instead of silently storing the trigram under
+the wrong bigram. The cost: a bigram's count is the sum of the trigrams
+it starts and ends (exactly so for 98.4% of bigrams), about 2× its
+occurrences, and a unigram's count about 3×. Bigrams `("", w)` are exact
+(sentences starting with w). The README's Notes describe this.
+`ngrams.py`'s `__main__` used to compute the flag as
+`TSV_FILENAME != "trigrams.tsv"`, which compared a full path with a file
+name and was always True.
+
+Effect: `freq()` of bigrams and unigrams is inflated, and `prob()` is
+about ½ (trigrams) or ⅔ (bigrams) of the relative frequency in the text.
+For ranking, it acts as a weaker backoff factor (about 0.53 and 0.6
+instead of 0.4); in the evaluation below it cost about 0.1 point of top-3
+at factor 0.4 and nothing at 0.1. Correcting the counts would change the
+`freq()` values that users see, so it is left for a deliberate model
+release, if ever.
+
+### Kneser-Ney: evaluated and declined (2026-11-05)
+
+Measured against held-out Greynir news published after the corpus cutoff
+(from 2026-08-08, in `vor_dev.greynir_articles`; dev 138k tokens, test
+388k), tokenized as `pipeline/extract_trigrams.py` does. The task:
+whether the next word is in the top 1 or 3 suggestions after 0, 1 or 2
+typed letters (60,000 test words, words only). Top-3:
+
+| Typed | SB 0.4 | SB 0.1 | Absolute discounting | Kneser-Ney |
+|---|---|---|---|---|
+| 0 | 34.09% | 34.21% | 34.12% | 34.27% |
+| 1 | 58.81% | 59.10% | 58.92% | 59.40% |
+| 2 | 70.87% | 71.29% | 71.02% | 71.35% |
+
+SB is stupid backoff with the given factor; the best factor on dev was at
+the edge of the grid (0.1). KN's ranking edge over a tuned SB is at most
+0.3 points, not worth about 13 MB of extra data, a new file section and C++
+code. KN wins clearly only on probabilities: test perplexity 191.5 against
+238.6 for absolute discounting, while SB's scores sum to 0.54-1.06 over
+the vocabulary. Revisit only if a client needs normalized probabilities
+(e.g. sentence scoring for spelling correction). The evaluation decoded the
+model into flat arrays with a small C++ program linked to `trie.cpp`; the
+scripts were not kept in the repo.
 
 ### Other loose ends
 
