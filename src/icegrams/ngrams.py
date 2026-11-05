@@ -106,6 +106,14 @@ In summary, the scheme is broadly as follows:
    done first in the upper-level list (at index n // Q) and
    secondly within the appropriate quantum (at index n % Q), where
    Q is the quantum size.
+8) The vocabulary (id -> unigram) is stored as the unigrams'
+   bytes back to back, in id order, with an Elias-Fano list of
+   their offsets (see NgramStorage.encode_vocab()). Like everything
+   else in the file, it is used in place in the memory map, so a
+   process pays no memory of its own for it and processes share it.
+   Files in the older format 1 (icegrams <= 2.2) store the vocabulary
+   gzip-compressed, which load() must decompress into memory; they
+   can still be loaded, and upgrade_model_file() converts them.
 
 """
 
@@ -147,7 +155,7 @@ BINARY_FILENAME = os.path.join(_PATH, "resources", "trigrams.bin")
 # (see also trie.py and build_trie.py)
 from ._trie import lib as trie_cffi, ffi  # type: ignore  # noqa: E402
 from .trie import Trie  # noqa: E402
-from .model import model_filename  # noqa: E402
+from .model import model_filename, MODEL_HEADERS  # noqa: E402
 
 ffi: Any = cast(Any, ffi)
 trie_cffi: Any = cast(Any, trie_cffi)
@@ -713,18 +721,24 @@ class NgramStorage:
     # We store an index position in the frequency array once
     # every FREQ_QUANTUM_SIZE frequency values
     FREQ_QUANTUM_SIZE = 1024
-    # Index positions for vocabulary
-    # A quantum size of 64 means that we spend 0.5 bits per
+    # Index positions for the gzip-compressed vocabulary of format 1
+    # files. A quantum size of 64 means that we spend 0.5 bits per
     # unigram on the index
     VOCAB_QUANTUM_SIZE = 64
-    # As an optimization, we store a separate index entry
+    # As an optimization, format 1 stores a separate index entry
     # for each unigram with id less than VOCAB_INDEX_CUTOFF.
     # Since the unigrams are ordered by frequency of occurrence,
     # this makes lookup faster for the most-used words.
     VOCAB_INDEX_CUTOFF = 1024
 
-    VERSION = b"Reynir 001.00.00"
-    assert len(VERSION) == 16
+    # The file format that write_binary() writes, and the formats that
+    # load() reads (see model.py). The formats differ only in the
+    # vocabulary section, the last one in the file: format 2 stores it
+    # uncompressed (see encode_vocab()), format 1 gzip-compressed.
+    VERSIONS = MODEL_HEADERS
+    VERSION = VERSIONS[0]
+    VERSION_1 = b"Reynir 001.00.00"
+    assert all(len(v) == 16 for v in VERSIONS) and VERSION_1 in VERSIONS
 
     # Note that the trie offset must be the first header
     _HEADERS = (
@@ -755,7 +769,15 @@ class NgramStorage:
         # Level 0 of the trigram tree
         self.level0: Optional[_Level] = None
         self.vocab_size: int = 0
-        self.compressed_vocab: Optional[bytes] = None
+        # The vocabulary section that write_binary() writes
+        self.vocab_section: Optional[bytes] = None
+        # The vocabulary of a loaded file: in format 2, an Elias-Fano
+        # list of word offsets and the word bytes, both in the memory
+        # map; in format 1, the decompressed word bytes
+        self._vocab_count = 0
+        self._vocab_offsets: Optional[MonotonicList] = None
+        self._vocab_words: Optional[memoryview] = None
+        self._compressed_vocab: Optional[bytes] = None
         # Memory mapped binary buffer
         self._b: Optional[mmap.mmap] = None
         self._mmap_buffer: Optional[mmap.mmap] = None
@@ -817,6 +839,15 @@ class NgramStorage:
 
     def id_to_word(self, n: int) -> str:
         """Convert a vocabulary index back to the original unigram text"""
+        offsets, words = self._vocab_offsets, self._vocab_words
+        if offsets is not None and words is not None:
+            # Format 2: word n is the bytes from offset n to offset n + 1
+            if not 0 <= n < self._vocab_count:
+                raise IndexError("Unigram id {0} is out of range".format(n))
+            start, end = offsets.lookup_pair(n)
+            return to_str(words[start:end])
+        # Format 1: find the word in the decompressed vocabulary
+        assert self._compressed_vocab is not None
         if n < self.VOCAB_INDEX_CUTOFF:
             # For low ids, we have an index entry for every id
             q, r = n, 0
@@ -1150,28 +1181,11 @@ class NgramStorage:
                 assert trie_ix == unigram_id
                 ids[w] = trie_ix
 
-        # Compress the vocabulary array using gzip
-        print("Starting compression of {0:,}-word vocabulary".format(len(vocab_list)))
-        compressed_vocab = bytearray()
-        compressed_index = bytearray()
-        # The index consists of w1...w1023 followed by w1024,w1088,...
-        for ix, (w, _) in enumerate(vocab_list):
-            if ix and (
-                ix % self.VOCAB_QUANTUM_SIZE == 0 or ix < self.VOCAB_INDEX_CUTOFF
-            ):
-                compressed_index.extend(UINT32.pack(len(compressed_vocab)))
-            compressed_vocab.extend(w + b"\x00")
-        parts: Sequence[bytes] = [
-            UINT32.pack(len(compressed_index) // 4),
-            compressed_index,
-            gzip.compress(compressed_vocab),
-        ]
-        self.compressed_vocab = b"".join(parts)
+        # Encode the vocabulary section, in unigram id order
+        print("Encoding the {0:,}-word vocabulary".format(len(vocab_list)))
+        self.vocab_section = self.encode_vocab([w for w, _ in vocab_list])
         print(
-            "Compressed vocabulary including index is {0:,} bytes, "
-            "{1:,} uncompressed, {2:,} index".format(
-                len(self.compressed_vocab), len(compressed_vocab), len(compressed_index)
-            )
+            "Vocabulary including index is {0:,} bytes".format(len(self.vocab_section))
         )
         del vocab_list
 
@@ -1547,6 +1561,39 @@ class NgramStorage:
         f.write(cwbits.to_bytes())
         f.write(startbits.to_bytes())
 
+    @staticmethod
+    def encode_vocab(words: Sequence[bytes]) -> bytes:
+        """Encode the vocabulary section of a format 2 file, where words[n]
+        is the word with unigram id n in the byte encoding of to_bytes().
+        The section consists of:
+
+            the number of words, N (UINT32);
+            the offset W of the word bytes within the section (UINT32);
+            a MonotonicList (Elias-Fano) of the N + 1 offsets of the words
+            within the word bytes, the first one being 0;
+            the word bytes, at W: the words back to back, unseparated.
+
+        Word n is the word bytes from offset n up to offset n + 1. load()
+        uses the section in place, in the memory map, so that it costs no
+        memory of its own and is shared between processes."""
+        offsets = [0]
+        for w in words:
+            offsets.append(offsets[-1] + len(w))
+        ml = MonotonicList()
+        ml.compress(offsets)
+        index = ml.to_bytes()  # Its length is a multiple of 4
+        return b"".join(
+            (UINT32.pack(len(words)), UINT32.pack(8 + len(index)), index, *words)
+        )
+
+    @staticmethod
+    def decode_vocab_v1(section: Any) -> bytes:
+        """Decompress the vocabulary section of a format 1 file: an index
+        (used by id_to_word()) followed by the gzip-compressed words in
+        unigram id order, each followed by a zero byte. Return the words."""
+        num_index = UINT32.unpack_from(section, 0)[0]
+        return gzip.decompress(section[4 + 4 * num_index :])
+
     def write_binary(self, fname: str) -> None:
         """Write a compressed form of the trigram database to a file"""
         print("Writing file '{0}'...".format(fname))
@@ -1658,8 +1705,8 @@ class NgramStorage:
         # Write vocabulary
         write_padded(b"[vocab]", 16)
         fixup(h.vocab_offset)
-        assert self.compressed_vocab is not None
-        f.write(self.compressed_vocab)
+        assert self.vocab_section is not None
+        f.write(self.vocab_section)
 
         # Write the entire byte buffer stream to the compressed file
         with open(fname, "wb") as stream:
@@ -1672,7 +1719,15 @@ class NgramStorage:
 
         assert self._b is not None
         mb = memoryview(cast(bytearray, self._b))
-        assert mb[0:16] == self.VERSION
+        version = bytes(mb[0:16])
+        if version not in self.VERSIONS:
+            mb.release()
+            self._b.close()
+            self._b = None
+            raise ValueError(
+                "{0} is not an Icegrams model file that this version "
+                "can load (header {1!r})".format(fname, version)
+            )
 
         # Create a CFFI buffer object pointing to the memory map
         self._mmap_buffer = ffi.from_buffer(mb)
@@ -1703,11 +1758,16 @@ class NgramStorage:
         # Instantiate the partitioned list for trigrams
         self._trigram_pl = PartitionedMonotonicList(self._trigrams)
 
-        # Load the vocabulary buffer
-        num_compressed_index = UINT32.unpack_from(self._vocab[0:4], 0)[0]
-        self._compressed_vocab = gzip.decompress(
-            self._vocab[4 + 4 * num_compressed_index :]
-        )
+        # Set up the vocabulary (unigram id -> word)
+        if version == self.VERSION_1:
+            # Decompress the vocabulary into memory
+            self._compressed_vocab = self.decode_vocab_v1(self._vocab)
+        else:
+            # Use the vocabulary in place, in the memory map
+            self._vocab_count, words_offset = struct.unpack_from("<II", self._vocab, 0)
+            self._vocab_offsets = MonotonicList(self._vocab[8:words_offset])
+            words_size = self._vocab_offsets.lookup(self._vocab_count)
+            self._vocab_words = self._vocab[words_offset : words_offset + words_size]
 
         # Load the freqs rank list into memory
         self.freqs = []
@@ -1737,6 +1797,9 @@ class NgramStorage:
             self._bigram_pl = None  # type: ignore
             self._bigram_ptrs_ml = None  # type: ignore
             self._trigram_pl = None  # type: ignore
+            self._vocab_offsets = None
+            self._vocab_words = None
+            self._compressed_vocab = None
             try:
                 self._b.close()
             except BufferError:
@@ -1744,6 +1807,40 @@ class NgramStorage:
                 # CPython unmaps it when the last view is released
                 pass
             self._b = None
+
+
+def upgrade_model_file(src: str, dest: str) -> None:
+    """Write the format 1 model file src to dest in the current format.
+    The formats differ only in the vocabulary section, the last one in
+    the file, so only that section is rewritten: the words and their ids
+    stay the same, and all other sections are copied byte for byte."""
+    with open(src, "rb") as f:
+        data = f.read()
+    version = data[0:16]
+    if version == NgramStorage.VERSION:
+        raise ValueError("{0} is already in the current format".format(src))
+    if version != NgramStorage.VERSION_1:
+        raise ValueError(
+            "{0} is not an Icegrams model file (header {1!r})".format(src, version)
+        )
+    offsets = struct.unpack_from("<" + "I" * NgramStorage._NUM_HEADERS, data, 16)
+    vocab_offset = offsets[NgramStorage._HEADERS.index("_vocab")]
+    if vocab_offset != max(offsets):
+        raise ValueError("The vocabulary is not the last section of " + src)
+    words = NgramStorage.decode_vocab_v1(memoryview(data)[vocab_offset:])
+    if not words.endswith(b"\x00"):
+        raise ValueError("The vocabulary of {0} is not terminated".format(src))
+    section = NgramStorage.encode_vocab(words[:-1].split(b"\x00"))
+    tmp = dest + ".tmp"
+    try:
+        with open(tmp, "wb") as f:
+            f.write(NgramStorage.VERSION)
+            f.write(memoryview(data)[16:vocab_offset])
+            f.write(section)
+        os.replace(tmp, dest)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
 
 
 if __name__ == "__main__":

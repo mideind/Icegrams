@@ -155,26 +155,49 @@ villi moved `icegrams-data` into the PyPI organization `mideind` on
 2026-11-05, as was done with `islenska-data`, and yanked the empty 0.0.0
 placeholder the same day. Nothing is left of the 2.2.0 work.
 
-### With the next model rebuild (format change)
+### Next release: model format 2 (vocabulary in the mmap, Kneser-Ney)
 
-Both items below change the `trigrams.bin` format. That means a new
-`MODEL_HEADER` (now `Reynir 001.00.00`, matching `NgramStorage.VERSION`), a
-model rebuild and a new model release. They can ship together with the
-`icegrams-data` switch or later.
+Decided by villi on 2026-11-05: both changes go into one release, with
+one new model release (`model-YYYY.MM`) and a matching `icegrams-data`.
+Neither needs the corpus: both are derived from the `model-2026.08` file.
 
-- **Store the vocabulary uncompressed** in the file. It is gzip-compressed
-  today, so `load()` unpacks it into a 21.7 MB `bytes` object in every
-  process; everything else stays in shared, file-backed mmap pages.
-- **Kneser-Ney counts**, from the "Future work" note in PR #11. Stupid
-  backoff gives well-ordered scores, but they are not normalized
-  probabilities. Interpolated Kneser-Ney needs:
+- **The vocabulary in the memory map** (PR `vocab-mmap`). Format 1
+  (`Reynir 001.00.00`) gzips the vocabulary, so `load()` unpacked it into
+  a 21.7 MB `bytes` object in every process, the only part of the model
+  not in shared, file-backed mmap pages. Format 2 (`Reynir 002.00.00`,
+  `model.MODEL_HEADERS[0]`) stores the words uncompressed with an
+  Elias-Fano offset list (`NgramStorage.encode_vocab()`). Measured on the
+  converted model-2026.08:
+  - private memory per process on load: 22 MB → 2 MB;
+  - load time: 0.11 s → 0.01 s;
+  - `id_to_word()` (only `succ()` uses it): ~20 µs → 1-2.5 µs;
+  - file size: 213.2 MB → 224.6 MB;
+  - gzip size, so roughly the wheel size: +0.5 MB.
+
+  `load()` still reads format 1, so an old model in `ICEGRAMS_MODEL_FILE`
+  keeps working. `tools/upgrade_model.py` converts format 1 to format 2:
+  it rewrites only the vocabulary section, the last one in the file,
+  checks every word, and prints `MODEL_SIZE` and `MODEL_SHA256`.
+  `MODEL_RELEASE_TAG` stays `model-2026.08` (format 1) until the release,
+  so CI tests the format 1 path on the real model, and both formats on a
+  synthetic model (`test_vocab_formats`, `test_upgrade_model_file`).
+- **Kneser-Ney counts** (follow-up PR, into format 2 before it is
+  released), from the "Future work" note in PR #11. Stupid backoff gives
+  well-ordered scores, but they are not normalized probabilities.
+  Interpolated Kneser-Ney needs:
   - per-context continuation counts, which can be derived from the trie's
     child ranges;
   - one extra vocabulary-sized array of `N1+(• w)`, written by
-    `NgramStorage.compress()`.
+    `NgramStorage.compress()` and by `upgrade_model_file()`.
 
   The discount D is about 0.75, or can be estimated from the
-  count-of-counts that `bucket_view.py` produces.
+  count-of-counts that `bucket_view.py` produces. Since format 2 is not
+  released yet, the KN section can be added to it without another header.
+
+Release steps, once both are merged: convert the model with
+`tools/upgrade_model.py`; upload it as a new `model-*` GitHub release;
+update `model.py` (tag, size, SHA-256), then follow "Releasing
+icegrams-data" and "Releasing".
 
 ### Other loose ends
 

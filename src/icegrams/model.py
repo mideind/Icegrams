@@ -76,9 +76,13 @@ MODEL_URL = (
 MODEL_SIZE = 213218123
 MODEL_SHA256 = "273db68d82cf842ddbc67ee11f9093e1204cc8a4692081f1d21601aea928d92d"
 
-# The 16-byte header that every trigrams.bin file starts with
-# (must match NgramStorage.VERSION in ngrams.py)
-MODEL_HEADER = b"Reynir 001.00.00"
+# The 16-byte headers that a trigrams.bin file can start with: the
+# format that the compressor writes, followed by the older formats that
+# can still be loaded. Format 2 stores the vocabulary uncompressed, so
+# that it is memory-mapped along with the rest of the file; format 1
+# stores it gzip-compressed. NgramStorage in ngrams.py uses these.
+MODEL_HEADERS = (b"Reynir 002.00.00", b"Reynir 001.00.00")
+MODEL_HEADER = MODEL_HEADERS[0]
 
 ENV_MODEL_FILE = "ICEGRAMS_MODEL_FILE"
 ENV_MODEL_DIR = "ICEGRAMS_MODEL_DIR"
@@ -142,12 +146,13 @@ def _cached_model_path() -> str:
 
 
 def _is_model_file(path: str) -> bool:
-    """Return True if path is an existing file that starts with the
-    trigrams.bin header. This rejects placeholder files and files that
-    were truncated before the header was written."""
+    """Return True if path is an existing file that starts with a
+    trigrams.bin header that this version can load. This rejects
+    placeholder files and files that were truncated before the header
+    was written."""
     try:
         with open(path, "rb") as f:
-            return f.read(len(MODEL_HEADER)) == MODEL_HEADER
+            return f.read(len(MODEL_HEADER)) in MODEL_HEADERS
     except OSError:
         return False
 
