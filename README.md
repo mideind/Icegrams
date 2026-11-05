@@ -360,22 +360,32 @@ trigrams being added to the database:
    (".", "", "")
 ```
 
-The same sliding window strategy is applied for bigrams, so the following
-bigrams would be recorded for the same sentence:
+Trigrams that occur only once in the source text are left out of the
+database (a frequency cutoff), which keeps it at a manageable size.
 
-```python
-   ("", "Maðurinn")
-   ("Maðurinn", "borðaði")
-   ("borðaði", "ísinn")
-   ("ísinn", ".")
-   (".", "")
-```
+Bigram and unigram counts are derived from the stored trigrams: each stored
+trigram adds its count to both of its bigrams and to all three of its
+unigrams. In the example above, `("Maðurinn", "borðaði")` is counted both
+as the start of `("Maðurinn", "borðaði", "ísinn")` and as the end of
+`("", "Maðurinn", "borðaði")`. This is necessary because the cutoff may
+remove every trigram that starts with a given bigram, while trigrams that
+end with it are kept. It means that:
 
-You can thus obtain the N unigrams that most often start
-a sentence by asking for `ng.succ(N, "")`.
+* A trigram's count is its number of occurrences in the source text.
+* A bigram's count is **about twice** its number of occurrences, and a
+  unigram's count **about three times**. For example,
+  `ng.freq("í", "dag")` returns about 2 million for a bigram that occurs
+  about 1 million times.
+* Bigrams that start a sentence, such as `("", "Maðurinn")`, are the
+  exception: their count is the number of sentences that start with the
+  word, as is the count used by `succ(N, "")`.
 
-And, of course, four unigrams are also added, one for each token in the
-sentence.
+Comparisons between counts of the same order, and the ranking of
+successors by `succ()`, are therefore hardly affected. Probabilities from
+`prob()` and `logprob()` are relative frequencies of these counts, so a
+trigram probability is about half of the corresponding relative frequency
+in the text, and a bigram probability about two thirds of it, except
+directly after the start of a sentence.
 
 The tokenization of the source text into unigrams is done with the
 [Tokenizer package](https://pypi.org/project/tokenizer) and

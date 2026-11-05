@@ -798,9 +798,17 @@ class NgramStorage:
     ):
         """Create a new compressed binary file from a trigram text (.tsv) file.
         If add_all_bigrams is True, then for each input trigram (w0, w1, w2)
-        we add both (w0, w1) and (w1, w2) as bigrams. Otherwise, we add only
-        (w0, w1) - and assume that (w1, w2, w3) is also present as a trigram
-        causing (w1, w2) to be implicitly added."""
+        we add both (w0, w1) and (w1, w2) as bigrams, adding the trigram's
+        count to both, and its count to all three unigrams. Otherwise, we add
+        only (w0, w1) - and assume that some trigram (w1, w2, w3) is also
+        present, causing (w1, w2) to be added. That holds for the complete
+        output of a sliding window, but not after a frequency cutoff has
+        removed trigrams: a cut-off file needs add_all_bigrams=True, and
+        write_binary() raises ValueError if a bigram is missing. With
+        add_all_bigrams=True, a bigram's count is the sum of the counts of
+        the trigrams it starts and ends, about twice its occurrences in
+        the text, and a unigram's count is about three times its
+        occurrences (see Notes in README.md)."""
         self.read_tsv(tsv_filename, add_all_bigrams=add_all_bigrams)
         self.write_binary(binary_filename)
 
@@ -1452,6 +1460,18 @@ class NgramStorage:
                             # Find the index of w2 within the list of children
                             # of w1, by bisection
                             remapped_id = bisect_left(w1_children, w2)
+                            if (
+                                remapped_id == len(w1_children)
+                                or w1_children[remapped_id] != w2
+                            ):
+                                # The bigram (w1, w2) is missing, so the
+                                # trigram can't be stored: this happens when
+                                # trigrams were cut off from the input file
+                                raise ValueError(
+                                    "The trigram ({0}, {1}, {2}) has no bigram "
+                                    "({1}, {2}); compress a cut-off trigram file "
+                                    "with add_all_bigrams=True".format(w0, w1, w2)
+                                )
                             # If we were not using the remapping technique,
                             # we would simply do this:
                             # remapped_id = w2
@@ -1847,13 +1867,15 @@ if __name__ == "__main__":
     print("Welcome to the Icegrams trigram compressor\n")
 
     ngrams = NgramStorage()
-    # The default trigrams.tsv data file contains a comprehensive
-    # set of trigrams, generated using a sliding window.
-    # In such a file, the presence of a trigram (w0, w1, w2)
-    # guarantees that (w0, w1) and (w1, w2) are both present as
-    # bigrams as well. If this is not the case in your data
-    # file, and you want (w1, w2) to be explicitly added
-    # when (w0, w1, w2) is seen, set add_all_bigrams to True.
-    add_all_bigrams = TSV_FILENAME != "trigrams.tsv"
+    # The trigrams.tsv data file is generated using a sliding window
+    # and then cut off at a minimum frequency (see doc/2026-update.md).
+    # In a complete sliding-window file, the presence of a trigram
+    # (w0, w1, w2) guarantees that (w1, w2) is also present as a bigram,
+    # but the cutoff removes some of those, so add_all_bigrams is needed
+    # (see NgramStorage.compress()). The model-2026.08 release was
+    # compressed with it. This used to be the test
+    # TSV_FILENAME != "trigrams.tsv", which compared a full path with a
+    # file name and was therefore always True.
+    add_all_bigrams = True
     ngrams.compress(TSV_FILENAME, BINARY_FILENAME, add_all_bigrams=add_all_bigrams)
     ngrams.close()

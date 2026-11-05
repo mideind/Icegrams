@@ -619,3 +619,17 @@ def test_upgrade_released_model(tmp_path):
         assert new.id_to_word(i) == old.id_to_word(i)
     old.close()
     new.close()
+
+
+def test_missing_bigrams(tmp_path):
+    # A trigram file in which some trigram (w0, w1, w2) has no trigram
+    # starting with (w1, w2), as after a frequency cutoff, can't be
+    # compressed without add_all_bigrams: the trigram would be stored
+    # under the wrong bigram, so the compressor refuses
+    _synthetic_tsv(tmp_path / "trigrams.tsv")
+    with contextlib.redirect_stdout(io.StringIO()):
+        with pytest.raises(ValueError, match="add_all_bigrams=True"):
+            NgramStorage().compress(
+                str(tmp_path / "trigrams.tsv"), str(tmp_path / "trigrams.bin")
+            )
+    assert not (tmp_path / "trigrams.bin").exists()
