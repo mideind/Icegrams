@@ -425,9 +425,9 @@ pip install icegrams
 
 This also installs the trigram model, which is published on PyPI as a
 package of its own, [`icegrams-data`](https://pypi.org/project/icegrams-data/)
-(a 192 MB wheel, holding the 213 MB model file `trigrams.bin`). `icegrams`
+(a 192 MB wheel, holding the 225 MB model file `trigrams.bin`). `icegrams`
 requires the `icegrams-data` release of the model it was tested with, e.g.
-`icegrams-data == 2026.8.*` for the model of August 2026, so lock files,
+`icegrams-data == 2026.11.*` for the model release of November 2026, so lock files,
 wheelhouses and container images capture the model together with the code.
 pip and uv cache the wheel, so it is downloaded once per machine. Creating
 an `Ngrams` instance never accesses the network.
@@ -459,7 +459,7 @@ environment variables affect where the model is stored and looked up:
   environments).
 * `ICEGRAMS_MODEL_DIR`: base directory for the downloaded model, instead
   of the per-user cache directory. The model is stored in a subdirectory
-  named after the model release (e.g. `model-2026.08`), so a package
+  named after the model release (e.g. `model-2026.11`), so a package
   upgrade that ships a new model requires running the download step again.
 * `ICEGRAMS_MODEL_URL`: alternative URL for the download step to fetch
   the model from. The pinned checksum is only verified for the
@@ -494,6 +494,15 @@ python -m pytest
 
 ## Changelog
 
+* Version 2.3.0: The whole model is now memory-mapped and shared between
+  processes. Model file format 2 stores the vocabulary uncompressed, where
+  format 1 made every process unpack it into 22 MB of private memory. Loading
+  the model takes a tenth of the time, and looking up the words of `succ()`
+  results is about ten times faster. The model is unchanged (the same words and
+  counts), published as `icegrams-data` 2026.11.0 and as the GitHub release
+  `model-2026.11`. Model files in format 1 can still be loaded, and
+  `tools/upgrade_model.py` converts them. The Notes section now describes
+  how bigram and unigram counts are derived. (2026-11-05)
 * Version 2.2.0: The trigram model is installed from PyPI as the package
   `icegrams-data` (version 2026.8.0, the unchanged model of 2.0.0), which
   `icegrams` now depends on, so the separate download step

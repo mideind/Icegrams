@@ -4,14 +4,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "icegrams-data"
-# The version follows the model release: 2026.8.x holds model-2026.08
+# The version follows the model release: 2026.11.x holds model-2026.11
 # (YYYY.M of the tag, without the leading zero). The patch number is for
 # re-releases of the same model, e.g. a packaging fix. icegrams requires
-# the exact model it was tested with (icegrams-data == 2026.8.*), because
+# the exact model it was tested with (icegrams-data == 2026.11.*), because
 # a new model changes query results. tools/data_package.py checks that
 # this version, MODEL_RELEASE_TAG in src/icegrams_data/__init__.py and
 # src/icegrams/model.py agree.
-version = "2026.8.0"
+version = "2026.11.0"
 description = "The trigram model of the icegrams package: n-gram statistics for Icelandic"
 authors = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]
 maintainers = [{ name = "Miðeind ehf.", email = "mideind@mideind.is" }]

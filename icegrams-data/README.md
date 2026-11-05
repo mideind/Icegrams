@@ -30,13 +30,17 @@ and grammar correction model, and trigrams that occurred only once were
 dropped. The process is described in
 [doc/2026-update.md](https://github.com/mideind/Icegrams/blob/master/doc/2026-update.md).
 
+Version 2026.11 holds the same model as 2026.8 (the same words and
+counts) in model file format 2, which stores the vocabulary uncompressed so
+that icegrams memory-maps all of the model. icegrams 2.3 and later use it.
+
 ## Versions
 
-The version follows the model: `2026.8.x` holds the model of the GitHub
-release `model-2026.08`, which is also available as a direct download
+The version follows the model: `2026.11.x` holds the model of the GitHub
+release `model-2026.11`, which is also available as a direct download
 (`python -m icegrams.download`). The patch number is for re-releases of the
 same model. Each icegrams release requires the model it was tested with
-(e.g. `icegrams-data == 2026.8.*`), because a new model changes the results
+(e.g. `icegrams-data == 2026.11.*`), because a new model changes the results
 of queries.
 
 ## Copyright and licensing

@@ -28,7 +28,7 @@ except Exception:  # Not installed, e.g. imported from a source tree
 
 # The GitHub release of the model in this package. icegrams uses the
 # model only if this tag is the one it was released with.
-MODEL_RELEASE_TAG = "model-2026.08"
+MODEL_RELEASE_TAG = "model-2026.11"
 
 MODEL_BASENAME = "trigrams.bin"
 
