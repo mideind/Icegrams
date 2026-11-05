@@ -151,9 +151,9 @@ GitHub release tags of the model files). The PyPI Trusted Publisher of
 `icegrams-data` (data-release.yml, environment `pypi`) was added by villi
 the same day.
 
-**Optional follow-ups (villi, on PyPI):** move `icegrams-data` into the
-Miðeind organization, as was done with `islenska-data`, and yank the empty
-0.0.0 placeholder.
+villi moved `icegrams-data` into the PyPI organization `mideind` on
+2026-11-05, as was done with `islenska-data`. **Optional follow-up
+(villi, on PyPI):** yank the empty 0.0.0 placeholder (wheel and sdist).
 
 ### With the next model rebuild (format change)
 
