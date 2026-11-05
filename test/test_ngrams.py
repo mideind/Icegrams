@@ -1,16 +1,22 @@
+import contextlib
+import gzip
 import importlib.metadata
+import io
 import math
 import platform
+import struct
 import sys
 import types
-from random import randint
+from collections import Counter
+from random import Random, randint
 
 import pytest
 
 from icegrams import Ngrams, ModelNotFoundError, BACKOFF_FACTOR
-from icegrams.model import MODEL_HEADER, MODEL_RELEASE_TAG, data_requirement
-from icegrams.model import model_filename
+from icegrams.model import MODEL_HEADER, MODEL_HEADERS, MODEL_RELEASE_TAG
+from icegrams.model import data_requirement, model_filename
 from icegrams.ngrams import BitArray, MonotonicList, PartitionedMonotonicList
+from icegrams.ngrams import NgramStorage, to_bytes, to_str, upgrade_model_file
 
 
 def test_compressed_list():
@@ -451,3 +457,165 @@ def test_word_ids():
     assert n
     for i in range(0, 2048):
         assert n.word_to_id(n.id_to_word(i)) == i
+
+
+# The model file format: the vocabulary section
+
+
+def _synthetic_tsv(path):
+    """Write a trigram .tsv file for a synthetic corpus of a few thousand
+    sentences: big enough for the compressor (its partitioned lists need
+    more than 2048 bigrams), small enough to compress in a second or two.
+    Return the trigram counts."""
+    rnd = Random(2026)
+    letters = "abdefghijklmnoprstuvxyzáéíóúýþæöð"
+    words = sorted(
+        {
+            "".join(rnd.choice(letters) for _ in range(rnd.randint(1, 12)))
+            for _ in range(3000)
+        }
+    )
+    weights = [1.0 / (i + 1) for i in range(len(words))]  # Zipf-like
+    counts: Counter = Counter()
+    for _ in range(4000):
+        sent = rnd.choices(words, weights, k=rnd.randint(2, 12)) + ["."]
+        padded = ["", ""] + sent
+        for i in range(len(sent)):
+            counts[tuple(padded[i : i + 3])] += 1
+    with open(path, "w", encoding="utf-8") as f:
+        for (w0, w1, w2), c in counts.items():
+            f.write("{0}\t{1}\t{2}\t{3}\n".format(w0, w1, w2, c))
+    return counts
+
+
+def _vocab_offset(data):
+    offsets = struct.unpack_from("<" + "I" * NgramStorage._NUM_HEADERS, data, 16)
+    return offsets[NgramStorage._HEADERS.index("_vocab")]
+
+
+def _format_1(data, words):
+    """Return the model file data in format 1, with the vocabulary
+    section written as the compressor of icegrams <= 2.2 wrote it"""
+    raw = bytearray()
+    index = bytearray()
+    for ix, w in enumerate(words):
+        if ix and (
+            ix % NgramStorage.VOCAB_QUANTUM_SIZE == 0
+            or ix < NgramStorage.VOCAB_INDEX_CUTOFF
+        ):
+            index.extend(struct.pack("<I", len(raw)))
+        raw.extend(w + b"\x00")
+    section = struct.pack("<I", len(index) // 4) + bytes(index) + gzip.compress(raw)
+    return NgramStorage.VERSION_1 + data[16 : _vocab_offset(data)] + section
+
+
+@pytest.fixture(scope="module")
+def synthetic_models(tmp_path_factory):
+    """A model compressed from the synthetic corpus (format 2) and the
+    same model in format 1, with the trigram counts and the vocabulary"""
+    d = tmp_path_factory.mktemp("models")
+    counts = _synthetic_tsv(d / "trigrams.tsv")
+    v2 = d / "format2.bin"
+    storage = NgramStorage()
+    with contextlib.redirect_stdout(io.StringIO()):
+        # The sliding window above leaves out the final bigram of each
+        # sentence, so have the compressor add it
+        storage.compress(str(d / "trigrams.tsv"), str(v2), add_all_bigrams=True)
+    data = v2.read_bytes()
+    assert data[:16] == NgramStorage.VERSION
+    # The words in unigram id order, from the format 2 section
+    loaded = NgramStorage()
+    loaded.load(str(v2))
+    words = [to_bytes(loaded.id_to_word(i)) for i in range(loaded._vocab_count)]
+    loaded.close()
+    v1 = d / "format1.bin"
+    v1.write_bytes(_format_1(data, words))
+    return v1, v2, counts, words
+
+
+def test_model_headers():
+    assert NgramStorage.VERSIONS == MODEL_HEADERS
+    assert NgramStorage.VERSION == MODEL_HEADER == MODEL_HEADERS[0]
+
+
+def test_vocab_formats(synthetic_models, monkeypatch):
+    v1, v2, counts, words = synthetic_models
+    assert words[0] == b""  # Sentence starts: id 0 is the empty unigram
+    results = []
+    for path in (v1, v2):
+        monkeypatch.setenv("ICEGRAMS_MODEL_FILE", str(path))
+        n = Ngrams()
+        s = n.ngrams
+        if path == v2:
+            # The vocabulary is used in place, in the memory map
+            assert s._compressed_vocab is None
+            assert isinstance(s._vocab_words, memoryview)
+            assert s._vocab_count == len(words)
+            with pytest.raises(IndexError):
+                s.id_to_word(len(words))
+            with pytest.raises(IndexError):
+                s.id_to_word(-1)
+        else:
+            assert s._vocab_offsets is None and s._compressed_vocab is not None
+        for i, w in enumerate(words):
+            assert s.id_to_word(i) == to_str(w)
+            assert s.word_to_id(to_str(w)) == i
+        for (w0, w1, w2), c in list(counts.items())[:500]:
+            if w0:
+                assert n.freq(w0, w1, w2) == c
+        common = to_str(words[1])
+        results.append(
+            (
+                n.succ(10, common),
+                n.succ(10, "", common),
+                n.prob(common, to_str(words[2])),
+                n.logprob(to_str(words[3]), common, to_str(words[2])),
+            )
+        )
+        n.close()
+    assert results[0] == results[1]
+
+
+def test_upgrade_model_file(synthetic_models, tmp_path):
+    v1, v2, _, _ = synthetic_models
+    # Upgrading the format 1 file reproduces the compressor's output
+    out = tmp_path / "upgraded.bin"
+    upgrade_model_file(str(v1), str(out))
+    assert out.read_bytes() == v2.read_bytes()
+    assert not (tmp_path / "upgraded.bin.tmp").exists()
+    with pytest.raises(ValueError, match="already in the current format"):
+        upgrade_model_file(str(v2), str(tmp_path / "again.bin"))
+    junk = tmp_path / "junk.bin"
+    junk.write_bytes(b"Not a model file" + bytes(100))
+    with pytest.raises(ValueError, match="not an Icegrams model file"):
+        upgrade_model_file(str(junk), str(tmp_path / "junk2.bin"))
+    s = NgramStorage()
+    with pytest.raises(ValueError, match="not an Icegrams model file"):
+        s.load(str(junk))
+    assert s._b is None
+
+
+def test_upgrade_released_model(tmp_path):
+    # The conversion of the released model, while that is in format 1
+    try:
+        src = model_filename()
+    except ModelNotFoundError as e:
+        pytest.skip("Trigram model not downloaded: {0}".format(e))
+    with open(src, "rb") as f:
+        if f.read(16) != NgramStorage.VERSION_1:
+            pytest.skip("The model is already in the current format")
+    dest = tmp_path / "trigrams.bin"
+    upgrade_model_file(src, str(dest))
+    old = NgramStorage()
+    old.load(src)
+    new = NgramStorage()
+    new.load(str(dest))
+    assert old._compressed_vocab is not None
+    words = old._compressed_vocab[:-1].split(b"\x00")
+    assert new._vocab_count == len(words)
+    for i, w in enumerate(words):
+        assert new.id_to_word(i) == to_str(w)
+    for i in range(0, len(words), 4999):
+        assert new.id_to_word(i) == old.id_to_word(i)
+    old.close()
+    new.close()
