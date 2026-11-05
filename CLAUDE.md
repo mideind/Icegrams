@@ -56,12 +56,15 @@ download cache. Installing a built data wheel over it
 
 ## Where the model lives
 
-The model is `trigrams.bin`, 213,218,123 bytes. It is an asset of the
-GitHub release `model-2026.08`; model releases are tagged separately from
-code releases. `src/icegrams/model.py` records the tag, URL, size and
-SHA-256. From 2.2.0 it is also the package `icegrams-data` 2026.8.0 (one
-`py3-none-any` wheel, 191,765,471 bytes, no sdist), a hard dependency of
-`icegrams` pinned as `icegrams-data == 2026.8.*` (`model.data_requirement()`
+The model is `trigrams.bin`, 224,619,045 bytes, in model file format 2.
+It is an asset of the GitHub release `model-2026.11`; model releases are
+tagged separately from code releases. `model-2026.11` holds the same words
+and counts as `model-2026.08` (213,218,123 bytes, format 1, used by
+2.0-2.2), converted with `tools/upgrade_model.py`. `src/icegrams/model.py`
+records the tag, URL, size and SHA-256. Since 2.2.0 the model is also the
+package `icegrams-data` (2026.11.0 for 2.3.0: one `py3-none-any` wheel of
+about 192.3 MB, no sdist), a hard dependency of `icegrams` pinned as
+`icegrams-data == 2026.11.*` (`model.data_requirement()`
 derives that string from the tag, and `test_data_requirement` checks it
 against the installed metadata). At runtime `model_filename()` looks, in
 this order, at:

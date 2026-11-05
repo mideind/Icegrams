@@ -65,7 +65,7 @@ import sys
 # constants below, and releasing a matching icegrams-data (its version
 # and MODEL_RELEASE_TAG follow this tag; tools/data_package.py checks
 # that they agree) and an icegrams that requires it (pyproject.toml).
-MODEL_RELEASE_TAG = "model-2026.08"
+MODEL_RELEASE_TAG = "model-2026.11"
 MODEL_BASENAME = "trigrams.bin"
 MODEL_URL = (
     "https://github.com/mideind/Icegrams/releases/download/"
@@ -73,8 +73,8 @@ MODEL_URL = (
     + "/"
     + MODEL_BASENAME
 )
-MODEL_SIZE = 213218123
-MODEL_SHA256 = "273db68d82cf842ddbc67ee11f9093e1204cc8a4692081f1d21601aea928d92d"
+MODEL_SIZE = 224619045
+MODEL_SHA256 = "b839a6bfd0c20016af3e22da1653a465a62acf28b68690037f796644241fbba6"
 
 # The 16-byte headers that a trigrams.bin file can start with: the
 # format that the compressor writes, followed by the older formats that
@@ -95,7 +95,7 @@ DATA_PACKAGE = "icegrams-data"
 
 def data_requirement() -> str:
     """The requirement on icegrams-data that matches MODEL_RELEASE_TAG:
-    model-2026.08 is in icegrams-data 2026.8.x. pyproject.toml must
+    model-2026.11 is in icegrams-data 2026.11.x. pyproject.toml must
     declare exactly this dependency (a test checks it)."""
     m = re.fullmatch(r"model-(\d{4})\.(\d{2})", MODEL_RELEASE_TAG)
     assert m is not None, MODEL_RELEASE_TAG

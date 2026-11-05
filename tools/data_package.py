@@ -24,7 +24,7 @@ MODEL_SIZE, MODEL_SHA256). It is taken from --model, else from the
 download cache of `python -m icegrams.download`, else downloaded from
 MODEL_URL, and its size and SHA-256 are checked in every case. Before
 staging, the script checks that model.py, icegrams_data.MODEL_RELEASE_TAG
-and the icegrams-data version agree (model-2026.08 is version 2026.8.x).
+and the icegrams-data version agree (model-2026.11 is version 2026.11.x).
 
 It needs only the standard library: icegrams need not be installed.
 --clean removes the staged model again.

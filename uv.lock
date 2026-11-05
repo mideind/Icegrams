@@ -144,7 +144,7 @@ wheels = [
 
 [[package]]
 name = "icegrams"
-version = "2.2.0"
+version = "2.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "certifi" },
@@ -172,7 +172,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "icegrams-data"
-version = "2026.8.0"
+version = "2026.11.0"
 source = { editable = "icegrams-data" }
 
 [[package]]
