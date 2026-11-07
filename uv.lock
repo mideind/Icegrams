@@ -163,7 +163,7 @@ dev = [
 requires-dist = [
     { name = "certifi" },
     { name = "cffi", specifier = ">=2.0.0" },
-    { name = "icegrams-data", editable = "icegrams-data" },
+    { name = "icegrams-data", specifier = "==2026.11.*" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
     { name = "setuptools", marker = "extra == 'dev'" },
@@ -173,7 +173,10 @@ provides-extras = ["dev"]
 [[package]]
 name = "icegrams-data"
 version = "2026.11.0"
-source = { editable = "icegrams-data" }
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/4d/44fd430d47e7a28f3160e41633dbc336f2bb9457d6666d4601e6e1b4be42/icegrams_data-2026.11.0-py3-none-any.whl", hash = "sha256:28e51af7462eff6524307ab7f7d5a8bb3639d0eca0beb80ac8710efd15178bbf", size = 192304433, upload-time = "2026-11-05T16:53:37.908Z" },
+]
 
 [[package]]
 name = "iniconfig"

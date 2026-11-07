@@ -54,11 +54,9 @@ dev = ["pytest", "ruff", "setuptools"]
 
 # *** Configuration of tools ***
 
-[tool.uv.sources]
-# In this repository, icegrams-data is the subproject in icegrams-data/. It
-# holds no model unless tools/data_package.py staged one, and then lookups
-# fall through to the download cache (model.model_filename()).
-icegrams-data = { path = "icegrams-data", editable = true }
+# No [tool.uv.sources] entry for icegrams-data: the subproject in
+# icegrams-data/ holds no model (tools/data_package.py stages one only to
+# build the wheel), so uv sync takes icegrams-data from PyPI, with the model.
 
 [tool.setuptools.packages.find]
 where = ["src"]

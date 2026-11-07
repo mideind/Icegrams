@@ -474,13 +474,12 @@ If you want to be able to edit the source, do like so (assuming you have **git**
 git clone https://github.com/mideind/Icegrams
 cd Icegrams
 uv sync --extra dev
-uv run python -m icegrams.download   # the model, once
+uv run python -m pytest
 ```
 
-The package source code is now in `./src/icegrams`. In this environment,
-uv installs `icegrams-data` from the subproject in `./icegrams-data`, which
-holds no model, so the model comes from the download step. (`pip install -e
-".[dev]"` installs `icegrams-data` from PyPI instead, with the model.)
+The package source code is now in `./src/icegrams`. `uv sync` installs
+`icegrams-data`, with the model, from PyPI (about 192 MB, which uv then
+caches), as `pip install -e ".[dev]"` does.
 
 ## Tests
 
