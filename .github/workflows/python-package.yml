@@ -43,14 +43,14 @@ jobs:
         python-version: ${{ matrix.python-version }}
     - name: Provide the icegrams-data wheel
       uses: ./.github/actions/icegrams-data
-    # [tool.uv.sources] installs the local icegrams-data subproject, which
-    # holds no model; the wheel installed after it replaces it
+    # The data wheel is installed together with icegrams, so it satisfies the
+    # icegrams-data requirement and nothing is fetched from PyPI (where the
+    # pinned version need not exist yet, when a new model is on its way)
     - name: Install dependencies
       run: |
         python -m pip install uv
         uv pip install --system --upgrade wheel setuptools pytest packaging
-        uv pip install --system -e .
-        uv pip install --system dist-data/*.whl
+        uv pip install --system -e . dist-data/*.whl
         python -c "import icegrams_data; from icegrams.model import model_filename; assert model_filename() == icegrams_data.model_path(), model_filename()"
     # Linting once is enough
     - name: Lint with ruff

@@ -34,10 +34,11 @@ Earlier releases:
   and capped stupid backoff (#11).
 - 2.0.0: the 2026 model.
 
-Gotcha: `uv pip install <path to this checkout>` applies
-`[tool.uv.sources]` and so installs the empty local `icegrams-data`
-subproject instead of the PyPI package; use `--no-sources` (or a built
-wheel) when testing a checkout against the published model.
+Since 2026-11-07 there is no `[tool.uv.sources]` entry: it pointed
+`icegrams-data` at the empty local subproject, so a fresh `uv sync` plus
+`uv run pytest` failed with `ModelNotFoundError` unless the model had been
+downloaded separately. `uv sync` now installs the published
+`icegrams-data` from PyPI, locked by hash in `uv.lock`.
 
 ## Key commands
 
@@ -46,9 +47,9 @@ Dependencies are declared in `pyproject.toml` and pinned in `uv.lock`
 changing dependencies.
 
 ```bash
-uv sync --extra dev                  # dev environment (pytest, ruff)
-uv run python -m icegrams.download   # fetch the model once (~213 MB)
-uv run python -m pytest              # test suite; needs the model
+uv sync --extra dev                  # dev environment (pytest, ruff), with
+                                     # icegrams-data from PyPI (192 MB)
+uv run python -m pytest              # test suite
 ruff check src/icegrams              # lint, as CI does (3.10 job only)
 
 # The icegrams-data wheel (192 MB), from the cached download if present
@@ -56,10 +57,10 @@ python3 tools/data_package.py && uv build --wheel icegrams-data -o dist-data
 python3 tools/data_package.py --clean
 ```
 
-The dev environment installs the `icegrams-data/` subproject editable
-(`[tool.uv.sources]`). It holds no model, so lookups fall through to the
-download cache. Installing a built data wheel over it
-(`uv pip install dist-data/*.whl`) replaces it, as the tests workflow does.
+The dev environment installs `icegrams-data` from PyPI. The
+`icegrams-data/` subproject is only for building the data wheel; CI
+installs that wheel together with icegrams (`uv pip install -e .
+dist-data/*.whl`), so it never needs the pinned version on PyPI.
 
 ## Where the model lives
 
@@ -138,7 +139,9 @@ if the version, `icegrams_data.MODEL_RELEASE_TAG` and `model.py` disagree.
 A new model therefore means: upload it to a new `model-*` GitHub release;
 update `model.py` (tag, size, SHA-256), `icegrams_data.MODEL_RELEASE_TAG`,
 the icegrams-data version and the pin in `pyproject.toml`; release
-`icegrams-data` first, then `icegrams`.
+`icegrams-data` first, then run `uv lock` (it resolves `icegrams-data`
+from PyPI, so it fails until the new version is published), then release
+`icegrams`.
 
 ## Roadmap
 
